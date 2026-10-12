@@ -20,10 +20,10 @@ Or download the repository and open `index.html` — no server or build step nee
 
 ## The cell's brain
 
-- **31 sensors → 14 recurrent neurons → 9 actions.** A cell senses its energy and health, the concentration of organic matter and its gradients (front/back, left/right and over time — like a real *E. coli*), light, toxins, the scent of neighbors, quorum signals, the nearest prey, threat and kin, detritus particles, pain and reward.
+- **31 sensors → 4 to 24 recurrent neurons → 9 actions.** Brain size is itself a gene: more neurons cost energy, and selection decides whether they pay off. A cell senses its energy and health, the concentration of organic matter and its gradients (front/back, left/right and over time — like a real *E. coli*), light, toxins, the scent of neighbors, quorum signals, the nearest prey, threat and kin, detritus particles, pain and reward.
 - **Actions:** thrust, turn, tumble, attack (phagocytosis or harpoon), release toxin, quorum signal, divide, conjugate, turn into a spore.
-- **Evolution:** when a cell divides, the offspring inherits 14 traits (size, flagellum, cilia, pseudopods, chloroplasts, armor…) and 765 network weights, with mutations. When descendants drift far enough from their ancestors, a new species is born with its own color and Latin name.
-- **Lifetime learning:** reinforcement learning via node perturbation. Reward is energy gain, punishment is pain (toxin, harpoon, burns). The learning rate is itself inherited. By default, learned changes are not passed to offspring (Darwinian), but you can switch on Lamarckian inheritance.
+- **Evolution:** when a cell divides, the offspring inherits 15 traits (size, flagellum, cilia, pseudopods, chloroplasts, armor, brain size…) and up to 1545 network weights, with mutations. When descendants drift far enough from their ancestors, a new species is born with its own color and Latin name.
+- **Lifetime learning:** actor–critic reinforcement learning. A critic predicts upcoming reward; its prediction error acts like dopamine and drives node-perturbation updates of the network. Reward is the taste of food plus potential-based shaping for improving conditions (more food, better light, less toxin); punishment is pain. In controlled tests the network learns a simple “turn toward the signal” task within a few hundred steps; in the full ecosystem it gives naive cells a modest (~5–10%) foraging boost — evolution remains the main source of intelligence. Learned changes are not inherited by default (Darwinian), but Lamarckian inheritance can be switched on.
 
 ## Biology
 

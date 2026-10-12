@@ -7,6 +7,8 @@ const O = { THRUST: 0, TURN: 1, TUMBLE: 2, ATTACK: 3, TOXIN: 4, SIGNAL: 5, DIVID
 function maxRadiusOf(t) { return 2.5 + 24 * Math.pow(t[T.SIZE], 1.2); }
 // «эукариотность»: крупные клетки получают ядро, реснички, фагоцитоз
 function eukOf(r) { return smoothstep(5, 8.5, r); }
+// число активных скрытых нейронов: от 4 до 24
+function brainSizeOf(t) { return H_MIN + Math.round((N_HID - H_MIN) * t[T.BRAIN]); }
 function mutRateOf(t) { return 0.003 + 0.1 * t[T.MUT] * t[T.MUT]; }
 
 class Genome {
@@ -182,7 +184,7 @@ const ARCHETYPES = [
 
 function archetypeGenome(arc, jitter = 0.03) {
   const t = new Float32Array(N_TRAITS);
-  t[T.MUT] = 0.3; t[T.LEARN] = 0.35; t[T.WAKE] = 0.3;
+  t[T.MUT] = 0.3; t[T.LEARN] = 0.35; t[T.WAKE] = 0.3; t[T.BRAIN] = 0.5;
   for (const k in arc.traits) t[T[k.toUpperCase()]] = arc.traits[k];
   for (let i = 0; i < N_TRAITS; i++) t[i] = clamp(t[i] + randn() * jitter, 0, 1);
   const w = instinctWeights(arc.inst);

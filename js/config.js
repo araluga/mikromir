@@ -15,7 +15,8 @@ const SPECIES_THRESHOLD = 0.3;
 const SENSE_RANGE = 45;       // дальность ощущения соседей (от мембраны)
 
 // ───────── Нейросеть ─────────
-const N_IN = 31, N_HID = 14, N_OUT = 9;
+const N_IN = 31, N_HID = 24, N_OUT = 9;   // N_HID — максимум; сколько нейронов активно, решает ген «Мозг»
+const H_MIN = 4;
 const W1_LEN = N_IN * N_HID;
 const R_OFF = W1_LEN, R_LEN = N_HID * N_HID;
 const W2_OFF = R_OFF + R_LEN, W2_LEN = N_HID * N_OUT;
@@ -26,11 +27,11 @@ const PLASTIC_LEN = W1_LEN + W2_LEN;  // веса, которые меняютс
 // подписи сенсоров и действий — в i18n.js (ключи in / out)
 
 // ───────── Гены (признаки) ─────────
-const T = { SIZE: 0, FLAG: 1, CILIA: 2, PSEUDO: 3, CHLORO: 4, OSMO: 5, PHAGO: 6, HARPOON: 7, TOXIN: 8, RESIST: 9, ARMOR: 10, MUT: 11, LEARN: 12, WAKE: 13 };
-const N_TRAITS = 14;
+const T = { SIZE: 0, FLAG: 1, CILIA: 2, PSEUDO: 3, CHLORO: 4, OSMO: 5, PHAGO: 6, HARPOON: 7, TOXIN: 8, RESIST: 9, ARMOR: 10, MUT: 11, LEARN: 12, WAKE: 13, BRAIN: 14 };
+const N_TRAITS = 15;
 // названия и описания признаков — в i18n.js (ключ traits)
 // стоимость содержания признака (энергия/с на массу^0.75)
-const TRAIT_COST = [0, 0.02, 0.014, 0.016, 0.01, 0.011, 0.014, 0.02, 0.03, 0.02, 0.02, 0, 0.003, 0];
+const TRAIT_COST = [0, 0.02, 0.014, 0.016, 0.01, 0.011, 0.014, 0.02, 0.03, 0.02, 0.02, 0, 0.003, 0, 0.008];
 
 // ───────── Экологические группы ─────────
 const CLASSES = {   // порядок и цвета проверены на различимость (в т.ч. для дальтоников) на тёмном фоне
@@ -52,6 +53,10 @@ const SETTINGS = {
   brownian: true,
   lamarck: false,     // наследование выученного
   learning: true,     // обучение за жизнь
+  learnGain: 1,       // множитель скорости обучения (для экспериментов)
+  explore: 0.35,      // сила «пробных» отклонений действий (шум на выходах сети)
+  shapeK: 10,         // вес поощрения за улучшение условий
+  learnEvery: 1,      // обучение раз в N тактов мышления
   panspermia: true,   // занос клеток извне при вымирании группы
   phages: true,       // бактериофаги атакуют слишком многочисленный вид
   popCap: 2000,

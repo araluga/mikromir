@@ -7,14 +7,12 @@ let nextCellId = 1;
 function divisionAllowed(c) {
   // учитываем и уже начатые деления: они дадут потомков через DIV_TIME
   const pop = sim.cells.length + sim.births.length + sim.pendingDiv, cap = SETTINGS.popCap;
-  const share = c.sp.count / Math.max(1, pop);
-  // редким видам оставляем место даже в переполненной чашке — иначе они не смогут вернуться
-  if (pop >= cap * (share < 0.05 ? 1.3 : 1.15)) return false;
-  // эукариот мало и они крупные — их тормозим позже, но тоже по доле вида
-  const start = c.euk > 0.5 ? 0.9 : 0.8;
-  if (pop < cap * start) return true;
-  // чем больше доля вида, тем сильнее тормозится его деление (частотно-зависимый отбор)
-  return Math.random() > (pop - cap * start) / (cap * (1.1 - start)) * Math.min(1, 0.2 + 2.5 * share);
+  if (pop >= cap * 1.3) return false;   // аварийный потолок — ради производительности
+  if (pop < cap) return true;
+  // чашка переполнена: тормозим деление самых массовых видов (частотно-зависимый отбор);
+  // основное же ограничение — рост затрат на жизнь в тесноте (см. update), он сохраняет смену поколений
+  const share = c.sp.count / pop;
+  return Math.random() > Math.min(1, share * 2.5) * (pop - cap) / (cap * 0.3);
 }
 function divisionAllowedCounted(c) {
   const ok = divisionAllowed(c);
@@ -32,7 +30,7 @@ class Cell {
     this.vx = 0; this.vy = 0;
     this.brain = null;
     this.derive();
-    this.brain = new Brain(genome.w, this.eta);
+    this.brain = new Brain(genome.w, this.eta, this.nh);
     this.mass = o.mass !== undefined ? o.mass : this.maxMass * rand(0.55, 0.9);
     this.r = Math.sqrt(this.mass);
     this.m75 = Math.pow(this.mass, 0.75);
@@ -47,7 +45,7 @@ class Cell {
     this.thrust = 0.5; this.turn = 0; this.tumble = false; this.attack = false;
     this.toxOut = 0; this.sigOut = 0;
     this.wantDiv = true; this.wantConj = false; this.wantSpore = false;
-    this.reward = 0; this.L = 0; this.thinkN = 0; this.wall = 0;
+    this.reward = 0; this.intake = 0; this.phiOld = 0; this.hasPhi = false; this.L = 0; this.thinkN = 0; this.wall = 0;
     this.gP = 0; this.gO = 0; this.gH = 0;   // доходы: фотосинтез / осмотрофия / охота (сглаженные)
     this.kids = 0; this.kills = 0; this.born = sim.time;
     this.seed = Math.random() * 1000; this.phase = Math.random() * TAU;
@@ -69,7 +67,9 @@ class Cell {
     for (let i = 0; i < N_TRAITS; i++) up += TRAIT_COST[i] * t[i];
     this.upK = up;
     this.moveK = 0.05 * t[T.FLAG] + 0.06 * t[T.CILIA] + 0.04 * t[T.PSEUDO];
-    this.eta = 0.03 * t[T.LEARN] * t[T.LEARN];
+    this.eta = 0.25 * SETTINGS.learnGain * t[T.LEARN] * t[T.LEARN];
+    this.nh = brainSizeOf(t);
+    this.brainCost = TRAIT_COST[T.BRAIN] * t[T.BRAIN];   // доля затрат на «мозг» (для инспектора)
     this.engulfRatio = this.euk * (0.35 + 0.45 * t[T.PHAGO] + 0.25 * t[T.PSEUDO]);
     // дотягиваются ли ложноножки / хоботок до соседа (доля радиуса)
     // у инфузорий реснички околоротовой воронки создают водоворот, затягивающий добычу
@@ -79,7 +79,7 @@ class Cell {
     else if (t[T.PSEUDO] > 0.3 && t[T.PSEUDO] >= t[T.CILIA] && t[T.PSEUDO] >= t[T.FLAG]) this.shape = 1;
     else if (t[T.CILIA] > 0.3 && t[T.CILIA] >= t[T.FLAG]) this.shape = 2;
     else this.shape = 3;
-    if (this.brain) this.brain.eta = this.eta;
+    if (this.brain) { this.brain.eta = this.eta; this.brain.nh = this.nh; }
   }
 
   get cap() { return this.mass * 2; }
@@ -109,8 +109,8 @@ class Cell {
     const L = lightRaw(x, y) * sh;
     this.L = L;
     inp[8] = L;
-    inp[9] = Math.tanh((lightRaw(fx, fy) - lightRaw(bx, by)) * sh * 8);
-    inp[10] = Math.tanh((lightRaw(lx, ly) - lightRaw(rx, ry)) * sh * 8);
+    inp[9] = Math.tanh((lightRaw(fx, fy) - lightRaw(bx, by)) * sh * 40);
+    inp[10] = Math.tanh((lightRaw(lx, ly) - lightRaw(rx, ry)) * sh * 40);
 
     inp[11] = Math.tanh(sampleF(Tx, x, y) * 2);
     inp[12] = Math.tanh((sampleF(Tx, fx, fy) - sampleF(Tx, bx, by)) * 6);
@@ -154,18 +154,31 @@ class Cell {
     const b = this.brain;
     // награда: прирост «энергия + биомасса» за шаг, штраф за боль
     // обучение идёт через такт мышления (экономия), награда считается за весь интервал
-    const learning = SETTINGS.learning && this.eta > 0.0004 && (++this.thinkN & 1) === 0;
+    const learning = SETTINGS.learning && this.eta > 0.0004 && (++this.thinkN % SETTINGS.learnEvery) === 0;
     if (!learning && SETTINGS.learning && this.eta > 0.0004) { this.sense(); b.step(0, false); this.decode(); return; }
-    const V = this.energy + this.mass;
-    const rate = (V - this.lastV) / (this.m75 * DT * BRAIN_EVERY * 2);
-    this.lastV = V;
-    const R = Math.tanh(rate * 2) - Math.min(1, this.dmg * 4);
-    const adv = R - b.base;
-    b.base += (R - b.base) * 0.02;
-    this.reward = clamp(adv, -1, 1);
+    // награда — «вкус» добытой пищи за интервал (как привлечение аттрактанта у бактерий) минус боль;
+    // затраты на движение сюда не входят: их оценивает эволюция, а не обучение
+    const rate = this.intake / (this.m75 * DT * BRAIN_EVERY * SETTINGS.learnEvery);
+    this.intake = 0;
     this.sense();
-    b.step(this.reward, learning);
+    // формирование награды через потенциал (Ng et al., 1999): поощряется улучшение условий —
+    // больше еды, свет ближе к оптимуму, меньше яда. Оптимальное поведение от этого не меняется,
+    // но сигнал становится быстрым и чётким — как хемотаксис у настоящих бактерий
+    const phi = this.potential();
+    const shaped = this.hasPhi ? (GAMMA * phi - this.phiOld) * SETTINGS.shapeK : 0;
+    this.phiOld = phi; this.hasPhi = true;
+    const R = Math.tanh(rate * 3) + shaped - Math.min(1, this.dmg * 4);
+    b.step(R, learning);
+    // «дофамин»: ошибка прогноза награды — и обучающий сигнал, и вход сети
+    this.reward = clamp(b.delta, -1, 1);
     this.decode();
+  }
+
+  // «насколько здесь хорошо» по ощущениям клетки
+  potential() {
+    const t = this.t, inp = this.brain.inp, L = inp[I.L];
+    const light = L > 0.85 ? 0.85 - 2 * (L - 0.85) : L;    // пик — полутень, яркий свет обжигает
+    return (t[T.OSMO] + 0.5 * t[T.PHAGO]) * inp[I.N] + t[T.CHLORO] * light - (1 - t[T.RESIST]) * inp[I.TX];
   }
 
   decode() {
@@ -219,12 +232,14 @@ class Cell {
       if (up > avail) up = avail;
       env.N.a[ix] = n - up / FIELD_AMT;
       gain += up * 0.9;
+      this.intake += up * 0.9;
       this.gO += (up * 0.9 / dt - this.gO) * 0.005;
     }
     if (t[T.CHLORO] > 0.02) {
       const L = lightAt(this.x, this.y);
       const p = t[T.CHLORO] * L * Math.pow(this.r, 1.6) * 0.3 * dt;
       gain += p;
+      this.intake += p;
       this.gP += (p / dt - this.gP) * 0.005;
       if (L > 0.85) this.hurt((L - 0.85) * t[T.CHLORO] * 0.5 * dt, 'light');
     }
@@ -232,7 +247,11 @@ class Cell {
 
     // локальная теснота: в переполненной ячейке растут затраты (конкуренция за кислород, отходы)
     const lm = env.massAcc[bucketOf(this.x, this.y)];
-    const crowd = lm > 700 ? 1 + (lm - 700) / 700 : 1;
+    let crowd = lm > 700 ? 1 + (lm - 700) / 700 : 1;
+    // переполненная чашка: растут затраты на жизнь у всех — слабые гибнут, освобождая место потомкам
+    // (без этого при упоре в лимит деления останавливаются и эволюция замирает)
+    const pop = sim.cells.length, capP = SETTINGS.popCap;
+    if (pop > capP * 0.8) { const q = (pop - capP * 0.8) / (capP * 0.2); crowd *= 1 + 2 * q * q; }
     let cost = (0.016 + this.upK) * m75 * crowd * dt + Math.abs(this.thrust) * this.moveK * m75 * dt;
     if (this.toxOut > 0 && t[T.TOXIN] > 0.05) {
       const a = this.toxOut * t[T.TOXIN] * Math.sqrt(this.mass) * 0.25 * dt;

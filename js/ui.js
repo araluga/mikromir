@@ -14,8 +14,22 @@ const $ = (id) => document.getElementById(id);
 
 // ───── штаммы (сохранённые геномы) ─────
 const STRAIN_KEY = 'mikromir.strains.v1';
+// штаммы, сохранённые до появления гена «Мозг» (сеть 14 нейронов) — переносим в новый формат
+function migrateStrain(s) {
+  if (s.w.length === N_W) return s;
+  const H0 = 14, OLD_R = N_IN * H0, OLD_W2 = OLD_R + H0 * H0, OLD_B2 = OLD_W2 + H0 * N_OUT;
+  if (s.w.length !== OLD_B2 + N_OUT) return null;
+  const w = Array.from(randomWeights(0.1));
+  for (let i = 0; i < N_IN; i++) for (let j = 0; j < H0; j++) w[i * N_HID + j] = s.w[i * H0 + j];
+  for (let k = 0; k < H0; k++) for (let j = 0; j < H0; j++) w[R_OFF + k * N_HID + j] = s.w[OLD_R + k * H0 + j];
+  for (let j = 0; j < H0; j++) for (let o = 0; o < N_OUT; o++) w[W2_OFF + j * N_OUT + o] = s.w[OLD_W2 + j * N_OUT + o];
+  for (let o = 0; o < N_OUT; o++) w[B2_OFF + o] = s.w[OLD_B2 + o];
+  const t = s.t.slice(0, N_TRAITS);
+  while (t.length < N_TRAITS) t.push(0.5);   // 14 нейронов ≈ ген 0,5
+  return { ...s, t, w };
+}
 function loadStrains() {
-  try { ui.strains = JSON.parse(localStorage.getItem(STRAIN_KEY) || '[]').filter(s => s.t && s.w && s.w.length === N_W); }
+  try { ui.strains = JSON.parse(localStorage.getItem(STRAIN_KEY) || '[]').filter(s => s.t && s.w).map(migrateStrain).filter(Boolean); }
   catch (e) { ui.strains = []; }
 }
 function saveStrains() {
@@ -508,12 +522,14 @@ function updateInspector() {
     barHTML(t('bar.energy'), c.energy / c.cap, Math.round(c.energy / c.cap * 100) + '%', '#f2c14e') +
     barHTML(t('bar.health'), c.health, Math.round(c.health * 100) + '%', '#ef6f6c') +
     barHTML(t('bar.growth'), c.mass / c.maxMass, Math.round(c.mass / c.maxMass * 100) + '%', '#5fe0c5') +
-    barHTML(t('bar.reward'), (c.reward + 1) / 2, (c.reward >= 0 ? '+' : '') + c.reward.toFixed(2), c.reward >= 0 ? '#7bd88f' : '#ff8a7a');
+    barHTML(t('bar.dopamine'), (c.reward + 1) / 2, (c.reward >= 0 ? '+' : '') + c.reward.toFixed(2), c.reward >= 0 ? '#7bd88f' : '#ff8a7a');
   const inc = (v) => v > 0.05 ? (v / c.m75 * 100).toFixed(0) : '—';
   $('ins-grid').innerHTML = [
     ['g.age', fmtTime(c.age)], ['g.kids', c.kids], ['g.kills', c.kills],
     ['g.photo', inc(c.gP)], ['g.osmo', inc(c.gO)], ['g.hunt', inc(c.gH)],
     ['g.size', (c.r * 2).toFixed(1)], ['g.speed', Math.round(Math.hypot(c.vx, c.vy))], ['g.kin', c.kinN],
+    ['g.neurons', c.nh], ['g.value', (c.brain.value >= 0 ? '+' : '') + c.brain.value.toFixed(2)],
+    ['g.brainCost', Math.round(c.brainCost / (0.016 + c.upK) * 100) + '%'],
   ].map(([a, b]) => `<div><span>${t(a)}</span><b>${b}</b></div>`).join('');
   const lr = c.eta;
   $('ins-learn').textContent = lr > 0.0004 ? t('ins.learn', { eta: (lr * 1000).toFixed(1), dw: c.brain.dMag.toFixed(3) }) : t('ins.nolearn');
@@ -546,14 +562,15 @@ function drawBrain() {
   const b = c.brain, g = b.g, d = b.d;
   const xi = 74, xh = W * 0.5 + 6, xo = W - 70;
   const yi = i => 8 + i * (H - 16) / (N_IN - 1);
-  const yh = j => 18 + j * (H - 36) / (N_HID - 1);
+  const nh = c.nh;
+  const yh = j => 18 + j * (H - 36) / Math.max(1, nh - 1);
   const yo = o => 28 + o * (H - 56) / (N_OUT - 1);
   ctx.lineCap = 'round';
   // связи вход → скрытый
   for (let i = 0; i < N_IN; i++) {
     const x = b.inp[i];
     if (Math.abs(x) < 0.02) continue;
-    for (let j = 0; j < N_HID; j++) {
+    for (let j = 0; j < nh; j++) {
       const w = g[i * N_HID + j] + d[i * N_HID + j];
       const s = w * x;
       const a = Math.min(0.9, Math.abs(s) * 0.45);
@@ -564,7 +581,7 @@ function drawBrain() {
     }
   }
   // связи скрытый → выход
-  for (let j = 0; j < N_HID; j++) {
+  for (let j = 0; j < nh; j++) {
     const x = b.h[j];
     for (let o = 0; o < N_OUT; o++) {
       const w = g[W2_OFF + j * N_OUT + o] + d[W1_LEN + j * N_OUT + o];
@@ -577,7 +594,7 @@ function drawBrain() {
     }
   }
   // рекуррентные петли (память)
-  for (let j = 0; j < N_HID; j++) {
+  for (let j = 0; j < nh; j++) {
     const w = g[R_OFF + j * N_HID + j];
     if (Math.abs(w) < 0.15) continue;
     ctx.strokeStyle = w > 0 ? 'rgba(79,195,247,0.35)' : 'rgba(255,154,74,0.35)';
@@ -599,7 +616,7 @@ function drawBrain() {
     ctx.fillStyle = Math.abs(b.inp[i]) > 0.05 ? '#c9d8e4' : '#5f7486';
     ctx.fillText(inNames[i], xi - 7, yi(i));
   }
-  for (let j = 0; j < N_HID; j++) node(xh, yh(j), b.h[j], 4.5);
+  for (let j = 0; j < nh; j++) node(xh, yh(j), b.h[j], nh > 18 ? 3.6 : 4.5);
   ctx.textAlign = 'left';
   for (let o = 0; o < N_OUT; o++) {
     const v = b.out[o];
@@ -626,6 +643,7 @@ const CHARTS = {
       { name: t('chart.avgGen'), color: '#3fa64e', get: h => h.avgGen },
     ],
   },
+  brain: { series: () => [{ name: t('chart.brain'), color: '#a35ee0', get: h => h.brain || 0 }] },
   learn: { series: () => [{ name: t('chart.plast'), color: '#b4880f', get: h => h.plast * 1000 }] },
 };
 

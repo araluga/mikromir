@@ -95,7 +95,7 @@ select { width: 100%; background: var(--panel-solid); border: 1px solid var(--li
 .btns button.on { border-color: var(--accent); color: var(--ink); }
 
 /* ── график ── */
-.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .tabs button { padding: 4px 8px; font-size: 11px; }
 .tabs button.on { border-color: var(--accent); color: var(--ink); background: rgba(95,224,197,0.08); }
 .chart-wrap { position: relative; }

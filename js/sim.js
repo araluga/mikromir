@@ -74,6 +74,7 @@ function divideCell(c) {
   const sp = speciesForChild(c.sp, childG);
   const child = new Cell(childG, sp, c.x + ox, c.y + oy, { gen: c.gen + 1, mass: m, energy: e, ang: c.ang + randn() * 0.4, parentId: c.id });
   c.x -= ox; c.y -= oy;
+  if (SETTINGS.lamarck) child.brain.copyCriticFrom(c.brain);
   c.kids++;
   c.lastV = c.energy + c.mass;
   sim.births.push(child);
@@ -178,6 +179,7 @@ function contact(c, o) {
         }
         const g = dr * 0.4;
         c.energy = Math.min(c.cap, c.energy + g);
+        c.intake += g;
         c.gH += g * 0.125;
         c.energy -= 0.15 * c.m75 * DT * t[T.HARPOON];
         if (o.health <= 0) { o.die('harpoon'); c.kills++; sim.kills++; c.addVacuole(); c.digest = 1 + 4 * Math.min(1, o.mass / c.mass); return; }
@@ -191,6 +193,7 @@ function contact(c, o) {
         if (p > 0 && Math.random() < p) {
           const g = (o.energy + o.mass) * (0.6 + 0.35 * t[T.PHAGO]);
           c.energy = Math.min(c.cap * 1.3, c.energy + g);
+          c.intake += g;
           c.gH += g * 0.125;
           o.die('eaten', true);
           c.digest = 0.5 + 6 * Math.min(1.5, o.mass / c.mass);
@@ -218,7 +221,7 @@ function conjugate(a, b) {
     for (const gi of PLASMID_GENES) if (Math.random() < 0.5) b.t[gi] = a.t[gi];
   }
   // передача «поведенческого модуля» — одного скрытого нейрона
-  const j = randi(0, N_HID);
+  const j = randi(0, Math.min(a.nh, b.nh));
   for (let i = 0; i < N_IN; i++) b.g.w[i * N_HID + j] = a.g.w[i * N_HID + j];
   for (let o = 0; o < N_OUT; o++) b.g.w[W2_OFF + j * N_OUT + o] = a.g.w[W2_OFF + j * N_OUT + o];
   a.derive(); b.derive();
@@ -259,6 +262,7 @@ function interactDebris() {
                 if (canPh && (c.attack || c.t[T.PHAGO] > 0.4)) {
                   const g = d.e * (0.45 + 0.45 * c.t[T.PHAGO]);
                   c.energy = Math.min(c.cap * 1.3, c.energy + g);
+                  c.intake += g;
                   c.gH += g * 0.125;
                   d.e = 0;
                   c.addVacuole();
@@ -266,6 +270,7 @@ function interactDebris() {
                   const take = Math.min(d.e, c.t[T.OSMO] * 1.5 * c.r * DT);
                   d.e -= take;
                   c.energy = Math.min(c.cap, c.energy + take * 0.85);
+                  c.intake += take * 0.85;
                   c.gO += take * 0.85 * 0.125;
                 }
               }
@@ -334,16 +339,16 @@ function recordStats() {
   const counts = classCounts();
   let alive = 0;
   for (const s of speciesMap.values()) if (s.count > 0) alive++;
-  let learn = 0, plast = 0, gen = 0, n = 0;
+  let learn = 0, plast = 0, gen = 0, n = 0, brain = 0;
   const cells = sim.cells;
   const step = Math.max(1, Math.floor(cells.length / 200));
   for (let i = 0; i < cells.length; i += step) {
     const c = cells[i];
-    learn += c.t[T.LEARN]; plast += c.brain.dMag; gen += c.gen; n++;
+    learn += c.t[T.LEARN]; plast += c.brain.dMag; gen += c.gen; brain += c.nh; n++;
   }
   sim.hist.push({
     t: sim.time, c: counts, total: cells.length, species: alive, maxGen: sim.maxGen,
-    avgGen: n ? gen / n : 0, learn: n ? learn / n : 0, plast: n ? plast / n : 0,
+    avgGen: n ? gen / n : 0, learn: n ? learn / n : 0, plast: n ? plast / n : 0, brain: n ? brain / n : 0,
     debris: sim.debris.length,
   });
   if (sim.hist.length > 1200) sim.hist = sim.hist.filter((_, i) => i % 2 === 0);
