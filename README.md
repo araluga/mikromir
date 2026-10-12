@@ -35,7 +35,7 @@ Or download the repository and open `index.html` — no server or build step nee
 - A colony is wrapped in a shared soft envelope that hugs its cells; other cells and colonies can dent it but not pass through, and colonies push as one heavy body.
 - Predators persist the way real ones do: Ochromonas also eats bacteria, photosynthesizes a little, nibbles weakly attached cells off filament ends and survives famine as a dormant cyst.
 - A colony’s mucous matrix also shields its cells from bacteriophages, like a biofilm.
-- In tests (4 independent worlds), multicellularity evolved in all 4 — 40–75% of cells living in colonies of up to ~85 cells, often as filaments — and a colony “organism” with division of labor appeared in 3 of 4 within ~7–11 minutes of simulated time. A control dish without the predator stays unicellular.
+- In tests (4 independent worlds), multicellularity evolved in all 4 — 40–75% of cells living in colonies of up to ~85 cells, often as filaments — and a colony “organism” with division of labor appeared in 3 of 4 within ~6–16 minutes of simulated time. A control dish without the predator stays unicellular.
 
 ## Biology
 

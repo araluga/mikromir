@@ -119,6 +119,15 @@ function instinctWeights(inst) {
     W1(I.EDGE, 12, 5); W1(I.COL, 12, 1.5); W1(I.BIAS, 12, -3);
     W2(12, O.SPEC, 2);
   }
+  if (inst.roleVar) {
+    // природный разброс «программы развития»: у разных особей роль в колонии по-разному (и случайно по знаку)
+    // зависит от места (край/центр, число связей) и от сигналов соседей. У одиночки все эти входы нулевые —
+    // на неё разброс не влияет; в колонии отбор выберет линии с удачным разделением труда
+    W1(I.EDGE, 12, randn() * 2.5); W1(I.BONDS, 12, randn() * 2); W1(I.SA, 12, randn() * 1.5);
+    W1(I.BIAS, 12, 0); W2(12, O.SPEC, 2);
+    W2(12, O.SIGA, randn() * 1.5);           // клетка может сообщать соседям о своей роли
+    B(O.SHARE, (inst.share ?? 0) + randn() * 0.5);
+  }
   if (inst.selective) {      // избирательный хищник: атакует только добычу сопоставимого размера
     W1(I.PR, 12, 5); W1(I.BIAS, 12, 1.8);
     W2(12, O.ATTACK, 3); B(O.ATTACK, -0.3);
@@ -200,7 +209,7 @@ const ARCHETYPES = [
   {
     key: 'chlorella', latin: 'Chlorella vulgaris', count: 0, extra: true,
     traits: { size: 0.12, chloro: 0.85, osmo: 0.15, armor: 0.25, adhes: 0.15 },
-    inst: { light: 0.4, adhere: -0.4, thrust: 0.2 },
+    inst: { light: 0.4, adhere: -0.4, thrust: 0.2, roleVar: 1 },
   },
   {
     key: 'ochromonas', latin: 'Ochromonas vallescia', count: 0, extra: true,
