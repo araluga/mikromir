@@ -50,6 +50,10 @@ class Cell {
     this.kids = 0; this.kills = 0; this.born = sim.time;
     this.seed = Math.random() * 1000; this.phase = Math.random() * TAU;
     this.vac = [];
+    // колония
+    this.bonds = []; this.col = null; this.colMark = -1;
+    this.adhere = Math.tanh(genome.w[B2_OFF + O.ADHERE]);   // сглаженное «желание» держаться вместе
+    this.shareOut = 0; this.sigA = 0; this.sigB = 0; this.spec = 0; this.sharedOut = 0;
   }
 
   derive() {
@@ -74,8 +78,8 @@ class Cell {
     // дотягиваются ли ложноножки / хоботок до соседа (доля радиуса)
     // у инфузорий реснички околоротовой воронки создают водоворот, затягивающий добычу
     this.reachK = this.euk * (0.35 * t[T.PSEUDO] + 0.3 * t[T.HARPOON] + 1.2 * t[T.CILIA] * t[T.PHAGO]);
-    // форма для отрисовки: 0 палочка, 1 амёба, 2 инфузория, 3 жгутиконосец/водоросль
-    if (this.euk < 0.5) this.shape = 0;
+    // форма для отрисовки: 0 палочка, 1 амёба, 2 инфузория, 3 жгутиконосец/водоросль, 4 шарик
+    if (this.euk < 0.5) this.shape = t[T.FLAG] < 0.15 ? 4 : 0;   // 4 — круглая (кокк, хлорелла)
     else if (t[T.PSEUDO] > 0.3 && t[T.PSEUDO] >= t[T.CILIA] && t[T.PSEUDO] >= t[T.FLAG]) this.shape = 1;
     else if (t[T.CILIA] > 0.3 && t[T.CILIA] >= t[T.FLAG]) this.shape = 2;
     else this.shape = 3;
@@ -147,6 +151,23 @@ class Cell {
     inp[I.DMG] = Math.min(1, this.dmg * 4);
     inp[I.CLK] = Math.sin(sim.time * 1.3 + this.phase);
     inp[I.RW] = this.reward;
+
+    // ── колония: связи, размер, место в колонии, сигналы соседей по связям ──
+    const nbn = this.bonds.length, col = this.col;
+    inp[I.BONDS] = nbn / 4;
+    if (col) {
+      inp[I.COL] = Math.tanh(col.size / 12);
+      const dx = col.cx - x, dy = col.cy - y, d = Math.sqrt(dx * dx + dy * dy);
+      inp[I.EDGE] = clamp(d / (col.rad + 1), 0, 1);
+      inp[I.CS] = d > 0.5 ? (-dx * sa + dy * ca) / d : 0;
+      inp[I.CC] = d > 0.5 ? (dx * ca + dy * sa) / d : 0;
+      inp[I.CE] = col.energy;
+    } else { inp[I.COL] = inp[I.EDGE] = inp[I.CS] = inp[I.CC] = inp[I.CE] = 0; }
+    if (nbn) {
+      let a = 0, b = 0;
+      for (const o of this.bonds) { a += o.sigA; b += o.sigB; }
+      inp[I.SA] = a / nbn; inp[I.SB] = b / nbn;
+    } else { inp[I.SA] = inp[I.SB] = 0; }
   }
 
   // ───── Мышление и обучение ─────
@@ -193,6 +214,12 @@ class Cell {
     this.wantConj = o[O.CONJ] > 0.4;
     this.wantSpore = o[O.SPORE] > 0.6;
     if (this.tumble && this.t[T.FLAG] > 0.08) this.ang += randn() * 1.6;
+    // колониальные решения (сглаживаем, чтобы шум исследования не рвал колонию)
+    this.adhere += (o[O.ADHERE] - this.adhere) * 0.15;
+    this.shareOut = o[O.SHARE] > 0 ? o[O.SHARE] : 0;
+    this.sigA = o[O.SIGA]; this.sigB = o[O.SIGB];
+    this.spec += (o[O.SPEC] - this.spec) * 0.1;
+    if (this.adhere < -0.5 && this.bonds.length) unbondAll(this);   // отделиться от колонии
   }
 
   update(dt) {
@@ -203,7 +230,10 @@ class Cell {
 
     // ── движение: низкие числа Рейнольдса — инерции почти нет ──
     const ca = Math.cos(this.ang), sa = Math.sin(this.ang);
-    let sp = this.vMax * this.thrust;
+    // роль в колонии: сома (spec > 0) кормится и плавает лучше, зародышевая (spec < 0) — растёт и делится быстрее
+    // выигрыш выпуклый: специалисты вместе сильнее двух универсалов — условие выгодности разделения труда
+    const e = this.spec, feedK = 1 + 0.5 * e + 0.3 * e * e, growK = clamp(1 - 0.8 * e, 0.2, 1.8);
+    let sp = this.vMax * this.thrust * (1 + 0.4 * e);
     if (this.tumble) sp *= 0.2;
     if (this.para > 0) { sp *= 0.25; this.para -= dt; }
     if (this.divT >= 0) sp *= 0.4;
@@ -227,7 +257,7 @@ class Cell {
     let gain = 0;
     if (t[T.OSMO] > 0.02) {
       const n = env.N.a[ix];
-      let up = t[T.OSMO] * n * this.r * 0.9 * dt * (1 - 0.4 * this.euk);
+      let up = t[T.OSMO] * n * this.r * 0.9 * dt * (1 - 0.4 * this.euk) * feedK;
       const avail = n * FIELD_AMT * 0.5;
       if (up > avail) up = avail;
       env.N.a[ix] = n - up / FIELD_AMT;
@@ -237,7 +267,7 @@ class Cell {
     }
     if (t[T.CHLORO] > 0.02) {
       const L = lightAt(this.x, this.y);
-      const p = t[T.CHLORO] * L * Math.pow(this.r, 1.6) * 0.3 * dt;
+      const p = t[T.CHLORO] * L * Math.pow(this.r, 1.6) * 0.3 * dt * feedK;
       gain += p;
       this.intake += p;
       this.gP += (p / dt - this.gP) * 0.005;
@@ -247,7 +277,7 @@ class Cell {
 
     // локальная теснота: в переполненной ячейке растут затраты (конкуренция за кислород, отходы)
     const lm = env.massAcc[bucketOf(this.x, this.y)];
-    let crowd = lm > 700 ? 1 + (lm - 700) / 700 : 1;
+    let crowd = lm > 700 ? 1 + (lm - 700) / 700 * (this.bonds.length ? 0.5 : 1) : 1;   // колония организована — теснота мягче
     // переполненная чашка: растут затраты на жизнь у всех — слабые гибнут, освобождая место потомкам
     // (без этого при упоре в лимит деления останавливаются и эволюция замирает)
     const pop = sim.cells.length, capP = SETTINGS.popCap;
@@ -270,7 +300,7 @@ class Cell {
 
     // рост
     if (this.mass < this.maxMass && this.energy > 0.3 * capE) {
-      let dm = 0.12 * this.maxMass * dt;
+      let dm = 0.12 * this.maxMass * dt * growK;
       if (this.mass + dm > this.maxMass) dm = this.maxMass - this.mass;
       const spare = this.energy - 0.25 * capE;
       if (dm > spare) dm = spare;
@@ -310,12 +340,13 @@ class Cell {
     if (this.divT >= 0) {
       this.divT += dt / DIV_TIME;
       if (this.divT >= 1) divideCell(this);
-    } else if (this.wantDiv && this.mass >= this.maxMass * 0.97 && this.energy >= 0.35 * capE && this.age > 2 && divisionAllowedCounted(this)) {
+    } else if (this.wantDiv && e < 0.5 && this.mass >= this.maxMass * 0.97 && this.energy >= 0.35 * capE && this.age > 2 && divisionAllowedCounted(this)) {
       this.divT = 0;
     }
     // ── спорообразование ──
     if (this.wantSpore && this.age > 3 && this.divT < 0 && this.energy > 0.03 * capE) {
       this.state = 1; this.sporeT = 0; this.energy *= 0.85; this.vx = this.vy = 0;
+      unbondAll(this);
     }
   }
 

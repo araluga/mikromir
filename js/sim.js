@@ -9,6 +9,7 @@ const sim = {
   logs: [], hist: [], lastStat: 0, classSeen: {},
   selected: null, maxGen: 0, totalBorn: 0, totalDied: 0, preset: 'balanced',
   kills: 0, conj: 0, newSpecies: 0, pendingDiv: 0,
+  colonies: [], shared: 0, firstColonyLogged: false,
 };
 
 // Запись журнала хранит ключ и параметры — текст собирается на текущем языке при показе
@@ -40,6 +41,7 @@ function addCell(c) {
 }
 
 function onCellDeath(c, eaten) {
+  if (c.bonds.length) unbondAll(c);
   const sp = c.sp;
   sp.count--;
   sim.totalDied++;
@@ -75,6 +77,9 @@ function divideCell(c) {
   const child = new Cell(childG, sp, c.x + ox, c.y + oy, { gen: c.gen + 1, mass: m, energy: e, ang: c.ang + randn() * 0.4, parentId: c.id });
   c.x -= ox; c.y -= oy;
   if (SETTINGS.lamarck) child.brain.copyCriticFrom(c.brain);
+  child.adhere = c.adhere; child.spec = c.spec * 0.5;
+  // остаться вместе? (так появляются колонии)
+  if (bondAtDivision(c, child) && !sim.firstColonyLogged && c.sp.rootArc !== 'volvox') { sim.firstColonyLogged = true; simLog('log.firstColony', { sp: c.sp }, 'species'); }
   c.kids++;
   c.lastV = c.energy + c.mass;
   sim.births.push(child);
@@ -93,7 +98,8 @@ function rebuildGrids() {
     if (c.divT >= 0) sim.pendingDiv++;
     next[i] = head[b]; head[b] = i;
     mAcc[b] += c.mass;
-    if (c.state === 0 && c.t[T.CHLORO] > 0.02) acc[b] += c.t[T.CHLORO] * c.mass;
+    // клетки колонии расположены слоем (как полый шар вольвокса) — затеняют друг друга слабее
+    if (c.state === 0 && c.t[T.CHLORO] > 0.02) acc[b] += c.t[T.CHLORO] * c.mass * (c.bonds.length ? 0.5 : 1);
   }
   for (let b = 0; b < acc.length; b++) env.shade[b] = acc[b] > 0 ? Math.exp(-acc[b] / 600) : 1;
 
@@ -137,8 +143,8 @@ function interactCells() {
                 else if (o.sp === c.sp) kin++;
                 else {
                   // химическое распознавание: «могу съесть» / «может съесть меня»
-                  if (o.r <= cMax && gap < preyGap) { preyGap = gap; prey = o; }
-                  if (gap < thrGap && ((o.t[T.PHAGO] > 0.05 && o.r * o.engulfRatio >= c.r) || (o.t[T.HARPOON] > 0.25 && o.r * 3.5 >= c.r))) { thrGap = gap; thr = o; }
+                  if (effRadius(o) <= cMax && gap < preyGap) { preyGap = gap; prey = o; }
+                  if (gap < thrGap && ((o.t[T.PHAGO] > 0.05 && o.r * o.engulfRatio >= effRadius(c)) || (o.t[T.HARPOON] > 0.25 && o.r * 3.5 >= c.r))) { thrGap = gap; thr = o; }
                 }
                 if (gap < 0) {
                   const push = -gap * (o.mass / (c.mass + o.mass)) * 0.6;
@@ -162,6 +168,8 @@ function interactCells() {
 function contact(c, o) {
   if (o.dead) return;
   const t = c.t;
+  // своя соседка, обе хотят держаться вместе — склеиваются (агрегация, как у слизевиков)
+  if (o.sp === c.sp && c.adhere > 0.3 && o.adhere > 0.3 && canBond(c) && canBond(o) && !c.bonds.includes(o)) bondCells(c, o);
   // голодный и не занятый перевариванием (функциональный ответ Холлинга II типа)
   if (c.attack && o.sp !== c.sp && c.digest <= 0 && c.energy < 0.85 * c.cap) {
     const arm = Math.min(1, o.t[T.ARMOR] + (o.state === 1 ? 0.5 : 0));
@@ -188,7 +196,7 @@ function contact(c, o) {
     // фагоцитоз: проглотить целиком
     if (t[T.PHAGO] > 0.05) {
       const ratio = c.engulfRatio + (o.para > 0 ? 0.45 * t[T.PHAGO] * c.euk : 0);
-      if (o.r <= c.r * ratio) {
+      if (effRadius(o) <= c.r * ratio) {   // колонию целиком не проглотить
         const p = (0.05 + 0.6 * t[T.PHAGO] - 0.7 * arm) * DT * 8;
         if (p > 0 && Math.random() < p) {
           const g = (o.energy + o.mass) * (0.6 + 0.35 * t[T.PHAGO]);
@@ -315,11 +323,13 @@ function simStep() {
   interactDebris();
   const cells = sim.cells;
   for (let i = 0; i < cells.length; i++) { const c = cells[i]; if (!c.dead) c.update(DT); }
+  colonyStep(DT);
   let w = 0;
   for (let i = 0; i < cells.length; i++) { const c = cells[i]; if (!c.dead) cells[w++] = c; }
   cells.length = w;
   for (let i = 0; i < sim.births.length; i++) addCell(sim.births[i]);
   sim.births.length = 0;
+  if (sim.tick % 10 === 0) findColonies();
   updateDebris(DT);
   if (sim.tick % 2 === 0) envStep(DT * 2);
   if (sim.time - sim.lastStat >= 1) recordStats();
@@ -340,6 +350,7 @@ function recordStats() {
   let alive = 0;
   for (const s of speciesMap.values()) if (s.count > 0) alive++;
   let learn = 0, plast = 0, gen = 0, n = 0, brain = 0;
+  const cs = colonyStats();
   const cells = sim.cells;
   const step = Math.max(1, Math.floor(cells.length / 200));
   for (let i = 0; i < cells.length; i += step) {
@@ -349,6 +360,7 @@ function recordStats() {
   sim.hist.push({
     t: sim.time, c: counts, total: cells.length, species: alive, maxGen: sim.maxGen,
     avgGen: n ? gen / n : 0, learn: n ? learn / n : 0, plast: n ? plast / n : 0, brain: n ? brain / n : 0,
+    avgCol: cs.avgCol, maxCol: cs.maxCol,
     debris: sim.debris.length,
   });
   if (sim.hist.length > 1200) sim.hist = sim.hist.filter((_, i) => i % 2 === 0);
@@ -366,7 +378,8 @@ function phages() {
     let killed = 0;
     for (const c of sim.cells) {
       if (c.sp !== s || c.dead) continue;
-      if (Math.random() < p * (c.state === 1 ? 0.1 : 1) * (1 - 0.3 * c.t[T.ARMOR])) { c.die(c.euk > 0.5 ? 'virus' : 'phage'); killed++; }
+      // слизистый матрикс колонии (как у биоплёнок) мешает вирусам добраться до клеток
+      if (Math.random() < p * (c.state === 1 ? 0.1 : 1) * (1 - 0.3 * c.t[T.ARMOR]) * (c.bonds.length ? 0.3 : 1)) { c.die(c.euk > 0.5 ? 'virus' : 'phage'); killed++; }
     }
     if (killed > 0 && sim.time - (s.lastPhageLog || -1e9) > 60) {
       s.lastPhageLog = sim.time;
@@ -381,10 +394,15 @@ function phages() {
 function panspermia() {
   for (const k of CLASS_KEYS) if (!(k in sim.classSeen)) sim.classSeen[k] = sim.time;
   const counts = classCounts();
+  // в «Происхождении многоклеточности» поддерживаем и добычу, и хищника, чтобы давление отбора не исчезало
+  const low = sim.preset === 'multicell' ? { photo: 40, grazer: 15, osmo: 10 } : null;
   for (const k of CLASS_KEYS) {
-    if (counts[k] > 0) { sim.classSeen[k] = sim.time; continue; }
+    if (counts[k] > (low ? (low[k] ?? 0) : 0)) { sim.classSeen[k] = sim.time; continue; }
     if (!SETTINGS.panspermia || sim.time - sim.classSeen[k] < 40) continue;
-    const arcs = ARCHETYPES.filter(a => a.cls === k);
+    let arcs = ARCHETYPES.filter(a => a.cls === k);
+    // в «Происхождении многоклеточности» возвращаем именно тех, кто создаёт давление отбора
+    // (и не заносим посторонних — например, амёбу, которая глотает колонии целиком)
+    if (sim.preset === 'multicell') arcs = arcs.filter(a => a.key === 'ochromonas' || a.key === 'chlorella' || a.key === 'ecoli');
     if (!arcs.length) continue;
     const a = pick(arcs);
     const [x, y] = randomInDish(150);
@@ -465,6 +483,9 @@ const PRESETS = {
   bacteria: {
     dots: ['osmo', 'osmo', 'osmo', 'photo', 'photo', 'toxic', 'predator'],
   },
+  multicell: {
+    dots: ['photo', 'photo', 'photo', 'photo', 'grazer', 'osmo'], colony: true,
+  },
   soup: {
     dots: ['photo', 'osmo', 'grazer', 'toxic', 'predator', 'osmo', 'photo'],
   },
@@ -475,6 +496,7 @@ function initWorld(preset = 'balanced') {
   sim.tick = 0; sim.time = 0; sim.logs = []; sim.hist = []; sim.lastStat = 0; sim.classSeen = {};
   sim.selected = null; sim.maxGen = 0; sim.totalBorn = 0; sim.totalDied = 0;
   sim.kills = 0; sim.conj = 0; sim.newSpecies = 0; sim.preset = preset;
+  sim.colonies = []; sim.shared = 0; sim.firstColonyLogged = false;
   speciesMap.clear();
   for (const a of ARCHETYPES) { a.species = null; a.cls = classify(archetypeGenome(a, 0).t).cls; }
   const P = PRESETS[preset];
@@ -483,9 +505,10 @@ function initWorld(preset = 'balanced') {
   simLog('log.newWorld', { mode: { k: 'preset.' + preset + '.name' } }, 'info');
   initMode(preset);
   const sel = {
-    balanced: ARCHETYPES.map(a => [a.key, a.count]),
+    balanced: ARCHETYPES.filter(a => !a.extra).map(a => [a.key, a.count]),
     bacteria: [['ecoli', 320], ['cyano', 220], ['strepto', 50], ['bdello', 25]],
-    protists: [['cyano', 260], ['euglena', 70], ['diatom', 50], ['paramecium', 45], ['stentor', 10], ['amoeba', 10], ['didinium', 10]],
+    protists: [['cyano', 260], ['euglena', 70], ['diatom', 50], ['paramecium', 45], ['stentor', 10], ['amoeba', 10], ['didinium', 10], ['volvox', 10]],
+    multicell: [['chlorella', 420], ['ochromonas', 40], ['ecoli', 120]],
   }[preset];
   if (P.empty) {
     // пустая чашка — засевает игрок

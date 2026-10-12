@@ -14,19 +14,24 @@ const $ = (id) => document.getElementById(id);
 
 // ───── штаммы (сохранённые геномы) ─────
 const STRAIN_KEY = 'mikromir.strains.v1';
-// штаммы, сохранённые до появления гена «Мозг» (сеть 14 нейронов) — переносим в новый формат
+// прежние раскладки сети [входы, нейроны, выходы]: штаммы из старых версий переносим в текущий формат
+const OLD_LAYOUTS = [[31, 14, 9], [31, 24, 9]];
+function layoutSize(ni, nh, no) { return ni * nh + nh * nh + nh * no + no; }
 function migrateStrain(s) {
-  if (s.w.length === N_W) return s;
-  const H0 = 14, OLD_R = N_IN * H0, OLD_W2 = OLD_R + H0 * H0, OLD_B2 = OLD_W2 + H0 * N_OUT;
-  if (s.w.length !== OLD_B2 + N_OUT) return null;
+  if (s.w.length === N_W && s.t.length === N_TRAITS) return s;
+  const lay = s.lay || OLD_LAYOUTS.find(l => layoutSize(...l) === s.w.length);
+  if (!lay || layoutSize(...lay) !== s.w.length) return null;
+  const [ni, nh, no] = lay;
+  const R0 = ni * nh, W20 = R0 + nh * nh, B20 = W20 + nh * no;
   const w = Array.from(randomWeights(0.1));
-  for (let i = 0; i < N_IN; i++) for (let j = 0; j < H0; j++) w[i * N_HID + j] = s.w[i * H0 + j];
-  for (let k = 0; k < H0; k++) for (let j = 0; j < H0; j++) w[R_OFF + k * N_HID + j] = s.w[OLD_R + k * H0 + j];
-  for (let j = 0; j < H0; j++) for (let o = 0; o < N_OUT; o++) w[W2_OFF + j * N_OUT + o] = s.w[OLD_W2 + j * N_OUT + o];
-  for (let o = 0; o < N_OUT; o++) w[B2_OFF + o] = s.w[OLD_B2 + o];
+  for (let i = 0; i < ni; i++) for (let j = 0; j < nh; j++) w[i * N_HID + j] = s.w[i * nh + j];
+  for (let k = 0; k < nh; k++) for (let j = 0; j < nh; j++) w[R_OFF + k * N_HID + j] = s.w[R0 + k * nh + j];
+  for (let j = 0; j < nh; j++) for (let o = 0; o < no; o++) w[W2_OFF + j * N_OUT + o] = s.w[W20 + j * no + o];
+  for (let o = 0; o < N_OUT; o++) w[B2_OFF + o] = o < no ? s.w[B20 + o] : 0;
+  if (no <= O.ADHERE) w[B2_OFF + O.ADHERE] = -1.5;          // старые штаммы — одиночки
   const t = s.t.slice(0, N_TRAITS);
-  while (t.length < N_TRAITS) t.push(0.5);   // 14 нейронов ≈ ген 0,5
-  return { ...s, t, w };
+  while (t.length < N_TRAITS) t.push(t.length === T.BRAIN ? 0.5 : 0);   // 14 нейронов ≈ ген 0,5; сцепление 0
+  return { ...s, t, w, lay: [N_IN, N_HID, N_OUT] };
 }
 function loadStrains() {
   try { ui.strains = JSON.parse(localStorage.getItem(STRAIN_KEY) || '[]').filter(s => s.t && s.w).map(migrateStrain).filter(Boolean); }
@@ -172,7 +177,7 @@ function initUI() {
     if (!s) return;
     ui.strains.push({
       name: `${s.sp.title} #${s.id}`, latin: s.sp.latin, hue: s.sp.hue, gen: s.gen,
-      t: Array.from(s.g.t), w: Array.from(s.g.w), saved: Date.now(),
+      t: Array.from(s.g.t), w: Array.from(s.g.w), lay: [N_IN, N_HID, N_OUT], saved: Date.now(),
     });
     if (ui.strains.length > 30) ui.strains.shift();
     const ok = saveStrains();
@@ -383,7 +388,7 @@ function initKeys() {
 // ───── периодическое обновление ─────
 function updateUI(now) {
   if (now - ui.lastKpi > 250) { ui.lastKpi = now; updateKpis(); flushLogs(); }
-  if (isGenesis() && now - ui.lastGoals > 400) { ui.lastGoals = now; updateGoals(); }
+  if (isGoalMode() && now - ui.lastGoals > 400) { ui.lastGoals = now; updateGoals(); }
   if (now - ui.lastSpecies > 1000) { ui.lastSpecies = now; updateSpecies(); }
   if (now - ui.lastChart > 1000) { ui.lastChart = now; drawChart(); }
   if (sim.selected) {
@@ -450,6 +455,8 @@ function updateSpecies() {
   const extinct = [...speciesMap.values()].filter(s => s.count === 0 && s.established).length;
   $('species-note').textContent = t('sp.note', { a: list.length, b: extinct });
   const max = list.length ? list[0].count : 1;
+  const inCol = new Map();
+  for (const c of sim.cells) if (c.col && c.col.size >= 3) inCol.set(c.sp, (inCol.get(c.sp) || 0) + 1);
   const box = $('species');
   box.innerHTML = '';
   for (const s of list.slice(0, 14)) {
@@ -457,7 +464,7 @@ function updateSpecies() {
     row.className = 'sp-row';
     row.title = t('sp.tt');
     row.innerHTML = `<span class="dot" style="--c:${s.cSolid}"></span>
-      <div class="nm"><div>${s.title}</div><small>${s.latin} · ${t('cls.' + s.cls).toLowerCase()}${s.parentName ? ' · ' + t('sp.from') + ' ' + s.parentName : ''}</small>
+      <div class="nm"><div>${s.title}</div><small>${s.latin} · ${t('cls.' + s.cls).toLowerCase()}${s.parentName ? ' · ' + t('sp.from') + ' ' + s.parentName : ''}${(inCol.get(s) || 0) / s.count >= 0.2 ? ' · ' + t('sp.colonial', { p: Math.round((inCol.get(s) || 0) / s.count * 100) }) : ''}</small>
       <div class="sp-bar" style="--c:${s.cSolid};width:${Math.max(3, s.count / max * 100)}%"></div></div>
       <div class="ct">${s.count}<small>${t('gen.short')} ${s.maxGen}</small></div>`;
     row.addEventListener('click', () => {
@@ -516,6 +523,10 @@ function updateInspector() {
     if (c.sigOut > 0.2) chips.push(`<span class="chip hot">${t('chip.signal')}</span>`);
     if (c.thr && c.thrGap < SENSE_RANGE) chips.push(`<span class="chip bad">${t('chip.threat')}</span>`);
     if (c.dmg > 0.03) chips.push(`<span class="chip bad">${t('chip.pain', { cause })}</span>`);
+    if (c.col) {
+      chips.push(`<span class="chip hot">${t('chip.colony', { n: c.col.size })}</span>`);
+      chips.push(`<span class="chip role-${roleOf(c)}">${t('role.' + roleOf(c))}</span>`);
+    }
   }
   $('ins-state').innerHTML = chips.join('');
   $('ins-bars').innerHTML =
@@ -643,6 +654,7 @@ const CHARTS = {
       { name: t('chart.avgGen'), color: '#3fa64e', get: h => h.avgGen },
     ],
   },
+  colony: { series: () => [{ name: t('chart.colony'), color: '#3fa64e', get: h => h.avgCol || 1 }] },
   brain: { series: () => [{ name: t('chart.brain'), color: '#a35ee0', get: h => h.brain || 0 }] },
   learn: { series: () => [{ name: t('chart.plast'), color: '#b4880f', get: h => h.plast * 1000 }] },
 };
@@ -750,7 +762,7 @@ function niceMax(v) {
 }
 
 // ───── стартовое меню и режимы ─────
-const MENU_ORDER = ['genesis', 'sandbox', 'balanced', 'protists', 'bacteria', 'soup'];
+const MENU_ORDER = ['genesis', 'multicell', 'sandbox', 'balanced', 'protists', 'bacteria', 'soup'];
 
 function buildMenu() {
   const box = $('modes');
@@ -758,17 +770,20 @@ function buildMenu() {
   for (const key of MENU_ORDER) {
     const p = PRESETS[key];
     const b = document.createElement('button');
-    b.className = 'mode' + (key === 'genesis' ? ' featured' : '');
+    b.className = 'mode' + (key === 'genesis' || key === 'multicell' ? ' featured' : '');
     // мини-чашка с «клетками» состава режима
     let dots = '';
     const n = p.dots.length ? (p.sparse ? 6 : 16) : 0;
     for (let i = 0; i < n; i++) {
       const cls = p.dots[i % p.dots.length];
-      const a = Math.random() * TAU, d = Math.sqrt(Math.random()) * 24;
-      const x = 32 + Math.cos(a) * d - 3.5, y = 32 + Math.sin(a) * d - 2.5;
+      let a = Math.random() * TAU, d = Math.sqrt(Math.random()) * 24, ox = 0, oy = 0;
+      if (p.colony && i % 2 === 0) {   // колонии: клетки собраны в кучки
+        const k = i % 3; ox = [-9, 10, 0][k]; oy = [-7, -4, 11][k]; d = Math.random() * 5;
+      }
+      const x = 32 + ox + Math.cos(a) * d - 3.5, y = 32 + oy + Math.sin(a) * d - 2.5;
       dots += `<i style="--c:${CLASSES[cls].color};left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;transform:rotate(${(Math.random() * 180) | 0}deg)"></i>`;
     }
-    b.innerHTML = `<div class="dish${p.empty ? ' empty' : ''}">${dots}</div>
+    b.innerHTML = `<div class="dish${p.empty ? ' empty' : ''}${p.colony ? ' colony' : ''}">${dots}</div>
       <div><span class="tag">${t('preset.' + key + '.tag')}</span><b>${t('preset.' + key + '.name')}</b><p>${t('preset.' + key + '.desc')}</p></div>`;
     b.addEventListener('click', () => startMode(key));
     box.appendChild(b);
@@ -797,14 +812,17 @@ function startMode(key) {
   setSpeed(1);
   const P = PRESETS[key];
   showModeInfo();
-  $('goals-sec').classList.toggle('hidden', key !== 'genesis');
-  $('hud').classList.toggle('hidden', key !== 'genesis');
+  $('goals-sec').classList.toggle('hidden', !isGoalMode());
+  $('hud').classList.toggle('hidden', !isGoalMode());
+  $('budget-box').classList.toggle('hidden', !isGenesis());
+  $('hud').querySelector('.hud-pts').classList.toggle('hidden', !isGenesis());
   if (P.empty) {
     if (key === 'genesis') ui.seed = 'arc:cyano';
     setTool('spawn');
   } else setTool('inspect');
   fillSeedSelect();
-  if (key === 'genesis') { buildGoals(); updateGoals(); }
+  if (key === 'multicell') ui.seed = 'arc:ochromonas';
+  if (isGoalMode()) { buildGoals(); updateGoals(); }
 }
 
 function syncSettingsUI() {
@@ -812,8 +830,9 @@ function syncSettingsUI() {
 }
 
 function buildGoals() {
-  $('goals').innerHTML = GOALS.map(g => `
-    <div class="goal${g.final ? ' final' : ''}" id="goal-${g.id}" title="${g.final ? t('goal.ttFinal') : t('goal.tt', { n: g.reward })}">
+  $('goals-title').textContent = t('preset.' + sim.mode.kind + '.name');
+  $('goals').innerHTML = modeGoals().map(g => `
+    <div class="goal${g.final ? ' final' : ''}" id="goal-${g.id}" title="${g.final ? t('goal.ttFinal') : g.reward ? t('goal.tt', { n: g.reward }) : ''}">
       <div class="gt"><b class="gn">${t('goal.' + g.id + '.title')}</b><span></span></div>
       <div class="gd">${t('goal.' + g.id + '.desc')}</div>
       <div class="tr"><div class="fl"></div></div>
@@ -821,24 +840,29 @@ function buildGoals() {
 }
 
 function updateGoals() {
-  const m = sim.mode;
+  const m = sim.mode, goals = modeGoals();
+  if (!goals) return;
   $('budget-v').textContent = Math.floor(m.budget);
   $('budget-bar').style.width = (m.budget / m.budgetMax * 100) + '%';
-  $('goals-count').textContent = t('goals.of', { a: m.done.size, b: GOALS.length });
+  $('goals-count').textContent = t('goals.of', { a: m.done.size, b: goals.length });
   $('hud-pts').textContent = Math.floor(m.budget);
-  $('hud-goals').textContent = t('hud.goals', { a: m.done.size, b: GOALS.length });
-  for (const g of GOALS) {
+  $('hud-goals').textContent = t('hud.goals', { a: m.done.size, b: goals.length });
+  for (const g of goals) {
     const el = $('goal-' + g.id);
     if (!el) continue;
     const [v, max] = m.progress[g.id] || [0, 1];
     const done = m.done.has(g.id);
     el.classList.toggle('done', done);
-    el.querySelector('span').textContent = done ? '' : g.id === 'stable' ? `${fmtTime(v)} / 2:00` : `${v} / ${max}`;
+    el.querySelector('span').textContent = done ? '' : g.final ? `${fmtTime(v)} / ${fmtTime(max)}` : max === 1 ? '' : g.id === 'colonial' ? `${v}% / ${max}%` : `${fmtNum(v)} / ${fmtNum(max)}`;
     el.querySelector('.fl').style.width = (done ? 100 : v / max * 100) + '%';
   }
   if (m.justWon) {
     m.justWon = false;
-    $('win-text').textContent = t('win.text', { time: fmtTime(m.wonAt), born: fmtNum(sim.totalBorn), gen: sim.maxGen, sp: sim.newSpecies });
+    const multi = m.kind === 'multicell';
+    $('win-title').textContent = t(multi ? 'win.titleMulti' : 'win.title');
+    $('win-text').textContent = multi
+      ? t('win.textMulti', { time: fmtTime(m.wonAt), max: colonyStats().maxCol, gen: sim.maxGen })
+      : t('win.text', { time: fmtTime(m.wonAt), born: fmtNum(sim.totalBorn), gen: sim.maxGen, sp: sim.newSpecies });
     $('win').classList.remove('hidden');
   }
 }
@@ -865,7 +889,7 @@ function changeLang(l) {
   buildMenu();
   buildZoo();
   showModeInfo();
-  if (isGenesis()) { buildGoals(); updateGoals(); }
+  if (isGoalMode()) { buildGoals(); updateGoals(); }
   rebuildLog();
   $('ins-follow').textContent = t(cam.follow ? 'ins.unfollow' : 'ins.follow');
   if (sim.selected) { buildTraitRows(sim.selected); updateInspector(); drawBrain(); }

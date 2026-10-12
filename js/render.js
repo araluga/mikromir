@@ -136,6 +136,7 @@ function render(fdt, running) {
     ctx.fill();
   }
 
+  drawColonies(ctx, k, cpx, vx0, vx1, vy0, vy1);
   drawCells(ctx, k, ox, oy, vx0, vx1, vy0, vy1, cpx);
 
   // ночь
@@ -163,6 +164,38 @@ function render(fdt, running) {
 
   drawSelection(ctx, cpx);
   drawCursor(ctx, cpx);
+}
+
+// Колонии: общая студенистая оболочка и межклеточные контакты
+function drawColonies(ctx, k, cpx, vx0, vx1, vy0, vy1) {
+  if (!sim.colonies.length) return;
+  for (const col of sim.colonies) {
+    if (col.size < 3) continue;
+    const R = col.rad + Math.sqrt(col.mass / col.size) * 1.8;
+    if (col.cx + R < vx0 || col.cx - R > vx1 || col.cy + R < vy0 || col.cy - R > vy1) continue;
+    ctx.beginPath(); ctx.arc(col.cx, col.cy, R, 0, TAU);
+    ctx.fillStyle = col.sp.cGel; ctx.fill();
+    ctx.lineWidth = 1 * cpx; ctx.strokeStyle = col.sp.cGelEdge; ctx.stroke();
+  }
+  const bySp = new Map();
+  for (const c of sim.cells) {
+    if (!c.bonds.length || c.x < vx0 || c.x > vx1 || c.y < vy0 || c.y > vy1) continue;
+    for (const b of c.bonds) {
+      if (c.id > b.id) continue;
+      let l = bySp.get(c.sp);
+      if (!l) { l = []; bySp.set(c.sp, l); }
+      l.push(c, b);
+    }
+  }
+  ctx.lineCap = 'round';
+  for (const [sp, l] of bySp) {
+    ctx.beginPath();
+    let rs = 0;
+    for (let i = 0; i < l.length; i += 2) { ctx.moveTo(l[i].x, l[i].y); ctx.lineTo(l[i + 1].x, l[i + 1].y); rs += Math.min(l[i].r, l[i + 1].r); }
+    ctx.lineWidth = Math.max(1.2 * cpx, rs / (l.length / 2) * 0.8);
+    ctx.strokeStyle = sp.cBond; ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
 }
 
 function drawCells(ctx, k, ox, oy, vx0, vx1, vy0, vy1, cpx) {
@@ -209,6 +242,13 @@ function drawCells(ctx, k, ox, oy, vx0, vx1, vy0, vy1, cpx) {
       ctx.fillStyle = sp.cBody; ctx.fill();
       ctx.strokeStyle = sp.cEdge; ctx.stroke();
     }
+    // роли в колониях видны и при среднем масштабе: зародышевые клетки — золотые точки
+    ctx.beginPath();
+    let germs = 0;
+    for (const list of batches.values()) for (const c of list) {
+      if (c.col && c.spec < -ROLE_T) { ctx.moveTo(c.x + c.r * 0.4, c.y); ctx.arc(c.x, c.y, c.r * 0.4, 0, TAU); germs++; }
+    }
+    if (germs) { ctx.globalAlpha = 0.9; ctx.fillStyle = 'rgba(255,205,90,0.9)'; ctx.fill(); }
     if (spores.length) {
       ctx.beginPath();
       for (const c of spores) { ctx.moveTo(c.x + c.r * 0.7, c.y); ctx.arc(c.x, c.y, c.r * 0.7, 0, TAU); }
@@ -244,6 +284,7 @@ function bodyRadii(c) {
     case 0: return [r * 1.45, r * 0.68];
     case 2: return [r * 1.25, r * 0.8];
     case 3: return [r * 1.12, r * 0.88];
+    case 4: return [r, r];
     default: return [r, r];
   }
 }
@@ -425,6 +466,20 @@ function drawBody(ctx, c, rx, ry, sr, time, px, alpha) {
     ctx.moveTo(-rx * 0.45, 0);
     ctx.bezierCurveTo(-rx * 0.2, -ry * 0.5, rx * 0.1, ry * 0.5, rx * 0.4, -ry * 0.05);
     ctx.stroke();
+  }
+
+  // роль в колонии: зародышевая клетка — золотистая гонидия, сома — голубой ободок
+  if (c.col) {
+    if (c.spec < -ROLE_T) {
+      ctx.globalAlpha = alpha * 0.9;
+      ctx.fillStyle = 'rgba(255,205,90,0.85)';
+      ctx.beginPath(); ctx.arc(rx * 0.1, 0, r * 0.3, 0, TAU); ctx.fill();
+    } else if (c.spec > ROLE_T) {
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.strokeStyle = 'rgba(120,225,255,0.85)';
+      ctx.lineWidth = Math.max(px, r * 0.06);
+      ctx.beginPath(); ctx.ellipse(0, 0, rx * 1.12, ry * 1.12, 0, 0, TAU); ctx.stroke();
+    }
   }
 
   // пищеварительные вакуоли (кружат — циклоз)

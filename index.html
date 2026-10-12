@@ -107,8 +107,8 @@
   <!-- RIGHT PANEL -->
   <aside id="right" class="panel">
     <section id="goals-sec" class="hidden">
-      <h3><span data-i18n="goals.title"></span> <span class="muted small" id="goals-count"></span></h3>
-      <div class="budget">
+      <h3><span id="goals-title"></span> <span class="muted small" id="goals-count"></span></h3>
+      <div class="budget" id="budget-box">
         <div class="budget-top"><span data-i18n="goals.budget"></span><b id="budget-v">0</b></div>
         <div class="tr"><div class="fl" id="budget-bar"></div></div>
         <div class="muted small" data-i18n="goals.note"></div>
@@ -122,6 +122,7 @@
         <button data-tab="species" data-i18n="tab.species"></button>
         <button data-tab="gen" data-i18n="tab.gen"></button>
         <button data-tab="brain" data-i18n="tab.brain"></button>
+        <button data-tab="colony" data-i18n="tab.colony"></button>
         <button data-tab="learn" data-i18n="tab.learn"></button>
       </div>
       <div class="chart-wrap">
@@ -197,7 +198,7 @@
   <div id="win" class="modal hidden">
     <div class="modal-card win-card">
       <div class="win-icon">★</div>
-      <h2 data-i18n="win.title"></h2>
+      <h2 id="win-title"></h2>
       <p id="win-text"></p>
       <div class="btns center">
         <button id="win-continue" class="primary" data-i18n="win.continue"></button>
@@ -221,10 +222,10 @@
         <div data-lang="ru">
           <p>Каждая клетка — отдельный организм со <b>своей нейросетью</b>. Её никто не программирует: поведение появляется само из эволюции и обучения.</p>
           <h4>Мозг клетки</h4>
-          <p><b>31 сенсор</b> → <b>от 4 до 24 рекуррентных нейронов</b> (они помнят прошлый шаг) → <b>9 действий</b>. Размер мозга задаёт ген «Мозг»: больше нейронов — сложнее поведение, но дороже энергия, и отбор сам решает, выгодно ли быть умнее. Клетка чувствует запасы энергии, концентрацию органики и её градиенты (спереди/сзади, слева/справа и во времени), свет, яды, запах соседей, сигналы кворума, ближайшую добычу и угрозу, частицы детрита, боль и награду.</p>
-          <p>Действия: тяга, поворот, «кувырок», атака (фагоцитоз или гарпун), выброс токсина, сигнал кворума, деление, конъюгация, превращение в спору.</p>
+          <p><b>39 сенсоров</b> → <b>от 4 до 24 рекуррентных нейронов</b> (они помнят прошлый шаг) → <b>14 действий</b>. Размер мозга задаёт ген «Мозг»: больше нейронов — сложнее поведение, но дороже энергия, и отбор сам решает, выгодно ли быть умнее. Клетка чувствует запасы энергии, концентрацию органики и её градиенты (спереди/сзади, слева/справа и во времени), свет, яды, запах соседей, сигналы кворума, ближайшую добычу и угрозу, частицы детрита, боль и награду.</p>
+          <p>Действия: тяга, поворот, «кувырок», атака (фагоцитоз или гарпун), выброс токсина, сигнал кворума, деление, конъюгация, превращение в спору — и колониальные: сцепление с соседями, передача энергии, два сигнала соседям и выбор роли в колонии.</p>
           <h4>Эволюция (между поколениями)</h4>
-          <p>При делении дочерняя клетка получает копию генома: 15 признаков (размер, жгутик, реснички, хлоропласты, броня, размер мозга…) и до 1545 весов нейросети — с мутациями. Веса выключенных нейронов хранятся как «спящие гены» и мутируют, пока эволюция их не включит. Кто лучше добывает энергию, тот чаще делится. Так естественный отбор шаг за шагом «дописывает» нейросети. Когда потомки сильно отличаются от предков, возникает <b>новый вид</b> со своим цветом и латинским названием.</p>
+          <p>При делении дочерняя клетка получает копию генома: 16 признаков (размер, жгутик, реснички, хлоропласты, броня, размер мозга, клейкость…) и до 1862 весов нейросети — с мутациями. Веса выключенных нейронов хранятся как «спящие гены» и мутируют, пока эволюция их не включит. Кто лучше добывает энергию, тот чаще делится. Так естественный отбор шаг за шагом «дописывает» нейросети. Когда потомки сильно отличаются от предков, возникает <b>новый вид</b> со своим цветом и латинским названием.</p>
           <h4>Обучение (за жизнь)</h4>
           <p>Нейросети ещё и учатся сами — по схеме <b>«актор–критик»</b>. «Критик» учится предсказывать, сколько хорошего ждёт клетку в ближайшие секунды. Ошибка этого прогноза — <b>дофамин δ</b>: «вышло лучше, чем ожидалось» или «хуже». В активность нейронов подмешивается шум, клетка «пробует» чуть другое поведение, и если после этого дофамин положителен, связи сдвигаются так, чтобы повторять удачное действие. Награда — вкус съеденной пищи и улучшение условий (больше еды, удачный свет, меньше яда), наказание — боль. Благодаря критику подкрепляются и действия, которые окупаются не сразу.</p>
           <p>Честно об эффекте: в проверочной задаче («поворачивай к сигналу») сеть учится за несколько сотен шагов. В живой чашке обучение даёт клеткам без врождённых рефлексов прибавку к добыче порядка 5–10% к концу жизни. Главный источник «ума» — эволюция. Скорость обучения тоже наследуется: если пользы от обучения нет, отбор её снизит.</p>
@@ -235,10 +236,10 @@
         <div data-lang="en">
           <p>Every cell is a separate organism with <b>its own neural network</b>. Nobody programs it: behavior emerges on its own from evolution and learning.</p>
           <h4>The cell's brain</h4>
-          <p><b>31 sensors</b> → <b>4 to 24 recurrent neurons</b> (they remember the previous step) → <b>9 actions</b>. Brain size is set by the “Brain” gene: more neurons allow richer behavior but cost energy, and selection decides whether being smarter pays off. A cell senses its energy reserves, the concentration of organic matter and its gradients (front/back, left/right and over time), light, poisons, the scent of neighbors, quorum signals, the nearest prey and threat, detritus particles, pain and reward.</p>
-          <p>Actions: thrust, turn, tumble, attack (phagocytosis or harpoon), release toxin, quorum signal, divide, conjugate, turn into a spore.</p>
+          <p><b>39 sensors</b> → <b>4 to 24 recurrent neurons</b> (they remember the previous step) → <b>14 actions</b>. Brain size is set by the “Brain” gene: more neurons allow richer behavior but cost energy, and selection decides whether being smarter pays off. A cell senses its energy reserves, the concentration of organic matter and its gradients (front/back, left/right and over time), light, poisons, the scent of neighbors, quorum signals, the nearest prey and threat, detritus particles, pain and reward.</p>
+          <p>Actions: thrust, turn, tumble, attack (phagocytosis or harpoon), release toxin, quorum signal, divide, conjugate, turn into a spore — plus colonial ones: adhering to neighbors, sharing energy, two signals to neighbors and choosing a role in the colony.</p>
           <h4>Evolution (across generations)</h4>
-          <p>When a cell divides, the daughter gets a copy of the genome: 15 traits (size, flagellum, cilia, chloroplasts, armor, brain size…) and up to 1545 network weights — with mutations. Weights of switched-off neurons are kept as “dormant genes” and keep mutating until evolution switches them on. Whoever gathers energy better divides more often, so natural selection “rewrites” the networks step by step. When descendants drift far from their ancestors, a <b>new species</b> appears with its own color and Latin name.</p>
+          <p>When a cell divides, the daughter gets a copy of the genome: 16 traits (size, flagellum, cilia, chloroplasts, armor, brain size, adhesion…) and up to 1862 network weights — with mutations. Weights of switched-off neurons are kept as “dormant genes” and keep mutating until evolution switches them on. Whoever gathers energy better divides more often, so natural selection “rewrites” the networks step by step. When descendants drift far from their ancestors, a <b>new species</b> appears with its own color and Latin name.</p>
           <h4>Learning (during life)</h4>
           <p>The networks also learn on their own with an <b>actor–critic</b> scheme. The “critic” learns to predict how much good awaits the cell in the next few seconds. The error of that prediction is <b>dopamine δ</b>: “better than expected” or “worse”. Noise is mixed into neuron activity, so the cell “tries” slightly different behavior, and if dopamine comes out positive, connections shift to repeat the successful action. Reward is the taste of eaten food plus improving conditions (more food, better light, less poison); punishment is pain. Thanks to the critic, actions that pay off later get reinforced too.</p>
           <p>An honest note on the effect: on a test task (“turn toward the signal”) the network learns within a few hundred steps. In the living dish, learning gives cells without innate reflexes roughly a 5–10% foraging boost by the end of their lives. Evolution remains the main source of “intelligence”. The learning rate is inherited too: if learning doesn't pay off, selection will lower it.</p>
@@ -269,6 +270,15 @@
             <li><b>Споры</b>: при голоде клетка может уснуть почти без затрат и проснуться, когда появится еда.</li>
             <li><b>Бактериофаги</b>: «убей победителя» — вирусы косят вид, который слишком расплодился, и дают шанс остальным.</li>
           </ul>
+          <h4>Колонии и многоклеточность</h4>
+          <ul>
+            <li><b>Сцепление</b>: если ген клейкости позволяет, а нейросеть «хочет», дочерние клетки остаются связанными с матерью. При малой клейкости вырастают нити, при большой — комки и шары.</li>
+            <li><b>Защита</b>: хищник глотает клетку, только если может проглотить всю колонию. Поэтому под давлением хищников жить вместе выгодно — так многоклеточность и возникала в природе.</li>
+            <li><b>Взаимопомощь</b>: по связям течёт энергия от сытых к голодным — если клетка готова делиться.</li>
+            <li><b>Общение</b>: клетка чувствует, где она в колонии (край или центр), насколько колония велика, и получает два сигнала от соседей по связям — как в системе Notch–Delta у животных.</li>
+            <li><b>Разделение труда</b>: каждая клетка выбирает роль. <b>Сома</b> лучше кормится и плавает, но не делится; <b>зародышевая</b> клетка кормится хуже, зато быстро растёт и размножается за счёт энергии от сомы. Это устройство вольвокса.</li>
+            <li><b>Слизистый матрикс</b>: общая оболочка колонии, как у биоплёнок, защищает клетки от бактериофагов — заражаются они втрое реже одиночек.</li>
+          </ul>
         </div>
         <div data-lang="en">
           <h4>Microworld physics</h4>
@@ -289,6 +299,15 @@
             <li><b>Conjugation</b>: bacteria pass on “plasmids” with genes (such as resistance), ciliates swap parts of their nuclei. A piece of the neural network is passed along with the genes.</li>
             <li><b>Spores</b>: when starving, a cell can fall asleep at almost no cost and wake up when food returns.</li>
             <li><b>Bacteriophages</b>: “kill the winner” — viruses cut down a species that has overgrown, giving the others a chance.</li>
+          </ul>
+          <h4>Colonies and multicellularity</h4>
+          <ul>
+            <li><b>Adhesion</b>: if the stickiness gene allows it and the network “wants” it, daughter cells stay bonded to their mother. Low stickiness grows filaments, high stickiness grows clumps and balls.</li>
+            <li><b>Protection</b>: a predator can only swallow a cell if it can swallow the whole colony. So under predation, living together pays off — which is how multicellularity arose in nature.</li>
+            <li><b>Mutual aid</b>: energy flows along bonds from well-fed cells to hungry ones — if a cell is willing to share.</li>
+            <li><b>Communication</b>: a cell senses where it is in the colony (edge or center) and how large the colony is, and receives two signals from its bonded neighbors — like the Notch–Delta system in animals.</li>
+            <li><b>Division of labor</b>: each cell picks a role. <b>Soma</b> feeds and swims better but never divides; a <b>germ cell</b> feeds worse but grows and reproduces fast on energy from the soma. That is how Volvox works.</li>
+            <li><b>Mucous matrix</b>: the shared colony sheath, like in biofilms, shields cells from bacteriophages — they get infected three times less often than single cells.</li>
           </ul>
         </div>
       </div>
@@ -334,6 +353,7 @@
 <script src="js/env.js"></script>
 <script src="js/cell.js"></script>
 <script src="js/sim.js"></script>
+<script src="js/colony.js"></script>
 <script src="js/modes.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>

@@ -45,6 +45,7 @@ class Species {
     this.cls = c.cls;
     this.label = c.label;              // ключ названия (label.*), переводится в title
     this.arcKey = opts.arcKey || null;  // прототип реального организма
+    this.rootArc = parent ? parent.rootArc : this.arcKey;   // от какого прототипа произошла линия
     this.customName = opts.name || null; // имя сохранённого штамма
     this.latin = opts.latin || latinName();
     const base = parent && parent.cls === this.cls ? parent.hue + randn() * 22 : CLASSES[this.cls].hue + randn() * 14;
@@ -64,6 +65,9 @@ class Species {
     this.cSolid = `hsl(${h},72%,62%)`;
     this.cDark = `hsla(${h},50%,28%,0.6)`;
     this.cNuc = `hsla(${(h + 200) % 360},35%,22%,0.75)`;
+    this.cGel = `hsla(${h},60%,55%,0.07)`;        // студенистая оболочка колонии
+    this.cGelEdge = `hsla(${h},70%,72%,0.28)`;
+    this.cBond = `hsla(${h},80%,72%,0.5)`;        // межклеточный контакт
   }
   get title() {
     if (this.customName) return this.customName;

@@ -1,8 +1,10 @@
 'use strict';
 // ───────── Геном: признаки + веса нейросети ─────────
 
-const I = { BIAS: 0, EN: 1, HP: 2, GROW: 3, N: 4, NF: 5, NL: 6, NT: 7, L: 8, LF: 9, LL: 10, TX: 11, TF: 12, TL: 13, SF: 14, SL: 15, Q: 16, PP: 17, PS: 18, PC: 19, PR: 20, TP: 21, TS: 22, TC: 23, KIN: 24, DP: 25, DS: 26, DC: 27, DMG: 28, CLK: 29, RW: 30 };
-const O = { THRUST: 0, TURN: 1, TUMBLE: 2, ATTACK: 3, TOXIN: 4, SIGNAL: 5, DIVIDE: 6, CONJ: 7, SPORE: 8 };
+const I = { BIAS: 0, EN: 1, HP: 2, GROW: 3, N: 4, NF: 5, NL: 6, NT: 7, L: 8, LF: 9, LL: 10, TX: 11, TF: 12, TL: 13, SF: 14, SL: 15, Q: 16, PP: 17, PS: 18, PC: 19, PR: 20, TP: 21, TS: 22, TC: 23, KIN: 24, DP: 25, DS: 26, DC: 27, DMG: 28, CLK: 29, RW: 30,
+  BONDS: 31, COL: 32, EDGE: 33, CS: 34, CC: 35, SA: 36, SB: 37, CE: 38 };
+const O = { THRUST: 0, TURN: 1, TUMBLE: 2, ATTACK: 3, TOXIN: 4, SIGNAL: 5, DIVIDE: 6, CONJ: 7, SPORE: 8,
+  ADHERE: 9, SHARE: 10, SIGA: 11, SIGB: 12, SPEC: 13 };
 
 function maxRadiusOf(t) { return 2.5 + 24 * Math.pow(t[T.SIZE], 1.2); }
 // «эукариотность»: крупные клетки получают ядро, реснички, фагоцитоз
@@ -74,6 +76,11 @@ function instinctWeights(inst) {
   B(O.DIVIDE, 1.5);
   B(O.CONJ, inst.conj ? 0.1 : -0.9);
   B(O.SPORE, -2.2);
+  // колониальные выходы: одиночки по умолчанию не склеиваются, роль — «универсал»
+  // природный разброс склонности к сцеплению: отбору есть из чего выбирать с самого начала
+  B(O.ADHERE, (inst.adhere ?? -1.5) + randn() * 0.35);
+  B(O.SHARE, inst.share ?? 0);
+  B(O.SIGA, 0); B(O.SIGB, 0); B(O.SPEC, 0);
 
   if (inst.food) {           // хемотаксис: поворот к еде + «бег и кувырок» по временному градиенту
     W1(I.NL, 0, 5 * inst.food); W2(0, O.TURN, 2.2);
@@ -107,6 +114,10 @@ function instinctWeights(inst) {
     // в покое нейрон ≈ tanh(−1): компенсируем смещением, чтобы рефлекс не гасил тягу
     B(O.THRUST, (inst.thrust ?? 0.9) + Math.tanh(1) * 1.2);
     W1(I.TS, 13, -4 * inst.flee); W2(13, O.TURN, 2.4);
+  }
+  if (inst.roles) {          // вольвокс: клетки на поверхности — сома, внутри — зародышевые (гонидии)
+    W1(I.EDGE, 12, 5); W1(I.COL, 12, 1.5); W1(I.BIAS, 12, -3);
+    W2(12, O.SPEC, 2);
   }
   if (inst.selective) {      // избирательный хищник: атакует только добычу сопоставимого размера
     W1(I.PR, 12, 5); W1(I.BIAS, 12, 1.8);
@@ -179,6 +190,22 @@ const ARCHETYPES = [
     key: 'didinium', latin: 'Didinium nasutum', count: 8,
     traits: { size: 0.45, cilia: 0.85, harpoon: 0.6, phago: 0.75 },
     inst: { hunt: 1.2, attack: 1, selective: 1 },
+  },
+  {
+    key: 'volvox', latin: 'Volvox aureus', count: 6,
+    traits: { size: 0.2, flag: 0.55, chloro: 0.75, osmo: 0.1, adhes: 0.85 },
+    inst: { light: 1, adhere: 2, share: 0.8, roles: 1, toxinAvoid: 0.5 },
+  },
+  // только для режима «Происхождение многоклеточности»
+  {
+    key: 'chlorella', latin: 'Chlorella vulgaris', count: 0, extra: true,
+    traits: { size: 0.12, chloro: 0.85, osmo: 0.15, armor: 0.25, adhes: 0.15 },
+    inst: { light: 0.4, adhere: -0.4, thrust: 0.2 },
+  },
+  {
+    key: 'ochromonas', latin: 'Ochromonas vallescia', count: 0, extra: true,
+    traits: { size: 0.32, flag: 0.7, phago: 0.75, osmo: 0.2, chloro: 0.2 },
+    inst: { hunt: 1, attack: 1, food: 0.3, light: 0.3 },
   },
 ];
 

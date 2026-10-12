@@ -139,7 +139,7 @@ select { width: 100%; background: var(--panel-solid); border: 1px solid var(--li
 .ins-grid span { display: block; font-size: 10px; color: var(--ink-3); }
 .ins-grid b { font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; }
 .brain-head { display: flex; justify-content: space-between; margin-top: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); }
-#brain { width: 100%; height: 330px; display: block; margin-top: 4px; }
+#brain { width: 100%; height: 400px; display: block; margin-top: 4px; }
 .brain-legend { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
 details { margin-top: 8px; }
 summary { cursor: pointer; color: var(--ink-2); font-size: 12px; }
@@ -207,6 +207,9 @@ table.keys td:first-child { color: var(--ink); font-weight: 600; white-space: no
 .mode.featured { border-color: rgba(95,224,197,0.55); box-shadow: 0 0 0 1px rgba(95,224,197,0.2), 0 10px 30px rgba(0,0,0,0.35); }
 .mode .dish { width: 64px; height: 64px; border-radius: 50%; position: relative; background: radial-gradient(circle at 40% 35%, #12303f, #071119 75%); border: 1.5px solid rgba(170,215,240,0.4); overflow: hidden; }
 .mode .dish i { position: absolute; width: 7px; height: 5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 5px var(--c); }
+.mode .dish.colony i { width: 6px; height: 6px; }
+.chip.role-soma { border-color: #6fd7ff; color: #bfeeff; }
+.chip.role-germ { border-color: #f2c14e; color: #fbe3a6; }
 .mode .dish.empty::after { content: '+'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(170,215,240,0.5); font-size: 26px; font-weight: 300; }
 .mode .tag { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); border: 1px solid rgba(95,224,197,0.4); border-radius: 10px; padding: 1px 7px; margin-bottom: 6px; }
 .mode b { display: block; font-size: 15px; margin-bottom: 4px; }
