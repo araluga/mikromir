@@ -39,6 +39,9 @@ function bondAtDivision(parent, child) {
 // Толщина общей оболочки колонии вокруг клетки (для столкновений и отрисовки)
 function envPad(c) { return c.r * 0.7 + 2; }
 
+// Слабо прикреплённую клетку с края колонии (конец нити, одна связь) хищник может «откусить»
+function nibbleable(o) { return o.col !== null && o.bonds.length <= 1; }
+
 // Эффективный радиус «жертвы»: колонию целиком хищнику не проглотить
 function effRadius(c) { return c.col ? c.col.effR : c.r; }
 

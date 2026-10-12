@@ -365,7 +365,9 @@ class Cell {
       const wake = 0.05 + this.t[T.WAKE] * 0.8;
       const n = env.N.a[ix];
       const L = lightAt(this.x, this.y);
-      if (n > wake || (this.t[T.CHLORO] > 0.3 && L * this.t[T.CHLORO] > wake * 0.5 && L < 0.85)) {
+      // хищник-циста просыпается, когда вокруг снова пахнет добычей
+      const prey = this.t[T.PHAGO] > 0.4 && env.S.a[ix] > 0.25 + this.t[T.WAKE] * 0.5;
+      if (prey || n > wake || (this.t[T.CHLORO] > 0.3 && L * this.t[T.CHLORO] > wake * 0.5 && L < 0.85)) {
         this.state = 0;
         this.lastV = this.energy + this.mass;
         this.brain.h.fill(0);

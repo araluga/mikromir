@@ -146,7 +146,7 @@ function interactCells() {
                 else if (o.sp === c.sp) kin++;
                 else {
                   // химическое распознавание: «могу съесть» / «может съесть меня»
-                  if (effRadius(o) <= cMax && gap < preyGap) { preyGap = gap; prey = o; }
+                  if ((nibbleable(o) ? o.r : effRadius(o)) <= cMax && gap < preyGap) { preyGap = gap; prey = o; }
                   if (gap < thrGap && ((o.t[T.PHAGO] > 0.05 && o.r * o.engulfRatio >= effRadius(c)) || (o.t[T.HARPOON] > 0.25 && o.r * 3.5 >= c.r))) { thrGap = gap; thr = o; }
                 }
                 if (gap < 0) {
@@ -207,8 +207,11 @@ function contact(c, o) {
     // фагоцитоз: проглотить целиком
     if (t[T.PHAGO] > 0.05) {
       const ratio = c.engulfRatio + (o.para > 0 ? 0.45 * t[T.PHAGO] * c.euk : 0);
-      if (effRadius(o) <= c.r * ratio) {   // колонию целиком не проглотить
-        const p = (0.05 + 0.6 * t[T.PHAGO] - 0.7 * arm) * DT * 8;
+      // колонию целиком не проглотить, но слабо прикреплённую клетку с края можно откусить (труднее)
+      const whole = effRadius(o) <= c.r * ratio;
+      const nibble = !whole && nibbleable(o) && o.r <= c.r * ratio;
+      if (whole || nibble) {
+        const p = (0.05 + 0.6 * t[T.PHAGO] - 0.7 * arm) * DT * 8 * (nibble ? 0.1 : 1);
         if (p > 0 && Math.random() < p) {
           const g = (o.energy + o.mass) * (0.6 + 0.35 * t[T.PHAGO]);
           c.energy = Math.min(c.cap * 1.3, c.energy + g);

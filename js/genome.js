@@ -205,7 +205,7 @@ const ARCHETYPES = [
   {
     key: 'ochromonas', latin: 'Ochromonas vallescia', count: 0, extra: true,
     traits: { size: 0.32, flag: 0.7, phago: 0.75, osmo: 0.3, chloro: 0.32 },
-    inst: { hunt: 1, attack: 1, food: 0.3, light: 0.3 },
+    inst: { hunt: 1, attack: 1, food: 0.3, light: 0.3, spore: 1, debris: 1 },
   },
 ];
 
