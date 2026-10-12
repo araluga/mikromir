@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Микромир — нейроэволюция клеток</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <header id="topbar">
+    <button class="icon-btn mobile-only" id="btn-left" title="Панель инструментов">☰</button>
+    <div class="brand"><span class="logo"></span><span class="brand-t">МИКРОМИР</span><small>нейроэволюция клеток</small></div>
+    <div class="kpis">
+      <div class="kpi"><span>Время</span><b id="k-time">0:00</b></div>
+      <div class="kpi"><span id="k-daylbl">День</span><b id="k-day">—</b></div>
+      <div class="kpi"><span>Клеток</span><b id="k-pop">0</b></div>
+      <div class="kpi"><span>Видов</span><b id="k-species">0</b></div>
+      <div class="kpi"><span>Макс. поколение</span><b id="k-gen">0</b></div>
+      <div class="kpi"><span>Рождений</span><b id="k-born">0</b></div>
+      <div class="kpi"><span>Тиков/с</span><b id="k-tps">0</b></div>
+    </div>
+    <div class="speed" id="speed">
+      <button data-speed="0" title="Пауза (Пробел)">❚❚</button>
+      <button data-speed="1" class="on" title="Клавиша 1">×1</button>
+      <button data-speed="3" title="Клавиша 2">×3</button>
+      <button data-speed="10" title="Клавиша 3">×10</button>
+      <button data-speed="40" title="Клавиша 4">×40</button>
+      <button data-speed="999" title="Максимум, без отрисовки каждого кадра (клавиша 5)">MAX</button>
+    </div>
+    <button class="icon-btn" id="btn-menu" title="Главное меню (M)">⌂</button>
+    <button class="icon-btn" id="btn-help" title="Как это работает (H)">?</button>
+    <button class="icon-btn mobile-only" id="btn-right" title="Статистика">◧</button>
+  </header>
+
+  <!-- ЛЕВАЯ ПАНЕЛЬ -->
+  <aside id="left" class="panel">
+    <section>
+      <h3>Инструменты</h3>
+      <div class="tools" id="tools">
+        <button data-tool="inspect" class="on" title="Выбрать клетку и изучить её мозг (Q)"><i>⌕</i>Осмотр</button>
+        <button data-tool="nutrient" title="Добавить растворённую органику (W)"><i>✦</i>Питание</button>
+        <button data-tool="toxin" title="Капнуть антибиотик (E)"><i>☣</i>Антибиотик</button>
+        <button data-tool="lamp" title="Переставить лампу (R)"><i>☀</i>Лампа</button>
+        <button data-tool="spawn" title="Посеять клетки (T)"><i>✚</i>Посев</button>
+        <button data-tool="laser" title="Выжечь клетки лазером (Y)"><i>✕</i>Лазер</button>
+      </div>
+      <label class="row" id="row-brush">Кисть <input type="range" id="brush" min="20" max="250" value="80"><output id="brush-v">80</output></label>
+      <label class="row col" id="row-seed">Что сеять <span class="muted small" id="seed-cost"></span>
+        <select id="seed"></select>
+      </label>
+      <p class="hint" id="tool-hint">Кликните по клетке, чтобы увидеть её нейросеть. Тяните мышью — двигать вид, колесо — масштаб.</p>
+    </section>
+
+    <section>
+      <h3>Слои</h3>
+      <div class="layers">
+        <label><input type="checkbox" data-layer="N" checked><span class="sw" style="--c:#1eaa96"></span>Органика</label>
+        <label><input type="checkbox" data-layer="T" checked><span class="sw" style="--c:#eb32af"></span>Токсины</label>
+        <label><input type="checkbox" data-layer="Q"><span class="sw" style="--c:#f0c83c"></span>Сигналы кворума</label>
+        <label><input type="checkbox" data-layer="S"><span class="sw" style="--c:#786ef0"></span>Запах клеток</label>
+        <label><input type="checkbox" data-layer="light" checked><span class="sw" style="--c:#ffe6a0"></span>Свет лампы</label>
+        <label><input type="checkbox" data-layer="senses" checked><span class="sw" style="--c:#8cc8ff"></span>Чувства выбранной</label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Среда</h3>
+      <label class="row">Яркость света <input type="range" id="s-light" min="0" max="1.6" step="0.05" value="1"><output></output></label>
+      <label class="row">Приток органики <input type="range" id="s-nutrient" min="0" max="3" step="0.05" value="1"><output></output></label>
+      <label class="row">Длина суток, с <input type="range" id="s-dayLength" min="60" max="600" step="10" value="200"><output></output></label>
+      <label class="check"><input type="checkbox" id="s-dayCycle" checked>Смена дня и ночи</label>
+      <label class="check"><input type="checkbox" id="s-brownian" checked>Броуновское движение</label>
+    </section>
+
+    <section>
+      <h3>Эволюция и обучение</h3>
+      <label class="row">Мутации ×<input type="range" id="s-mutMul" min="0" max="5" step="0.1" value="1"><output></output></label>
+      <label class="row">Лимит клеток <input type="range" id="s-popCap" min="400" max="4000" step="100" value="2000"><output></output></label>
+      <label class="check" title="Нейросети подстраиваются за жизнь: подкрепление энергией, наказание болью"><input type="checkbox" id="s-learning" checked>Обучение за жизнь</label>
+      <label class="check" title="Дети наследуют то, чему научились родители (не как в природе!)"><input type="checkbox" id="s-lamarck">Ламарковское наследование</label>
+      <label class="check" title="Если группа вымерла, через время в чашку попадают клетки извне"><input type="checkbox" id="s-panspermia" checked>Занос извне (панспермия)</label>
+      <label class="check" title="«Убей победителя»: вирусы косят вид, который занял больше трети чашки"><input type="checkbox" id="s-phages" checked>Эпидемии бактериофагов</label>
+    </section>
+
+    <section>
+      <h3>Мир</h3>
+      <div class="cur-mode"><b id="cur-mode"></b><p class="hint" id="preset-desc"></p></div>
+      <div class="btns">
+        <button id="btn-restart" class="primary" title="Начать этот режим заново">Заново</button>
+        <button id="btn-menu2" title="Выбрать другой режим (M)">Главное меню</button>
+        <button id="btn-fit" title="Показать всю чашку (F)">Вся чашка</button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ПРАВАЯ ПАНЕЛЬ -->
+  <aside id="right" class="panel">
+    <section id="goals-sec" class="hidden">
+      <h3>Сотворение <span class="muted small" id="goals-count"></span></h3>
+      <div class="budget">
+        <div class="budget-top"><span>Очки жизни</span><b id="budget-v">0</b></div>
+        <div class="tr"><div class="fl" id="budget-bar"></div></div>
+        <div class="muted small">+1 за 4 с · награды за цели</div>
+      </div>
+      <div class="goals" id="goals"></div>
+    </section>
+
+    <section>
+      <div class="tabs" id="chart-tabs">
+        <button data-tab="pop" class="on">Популяция</button>
+        <button data-tab="species">Виды</button>
+        <button data-tab="gen">Поколения</button>
+        <button data-tab="learn">Обучение</button>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+        <div class="chart-tip hidden" id="chart-tip"></div>
+      </div>
+      <div class="legend" id="chart-legend"></div>
+    </section>
+
+    <section id="inspector-sec">
+      <h3>Особь <span class="muted" id="ins-follow-hint"></span></h3>
+      <div id="inspector-empty" class="hint">Кликните по любой клетке в чашке, чтобы заглянуть в её «мозг»: 31 сенсор → 14 нейронов с памятью → 9 действий.</div>
+      <div id="inspector" class="hidden">
+        <div class="ins-head">
+          <span class="dot" id="ins-dot"></span>
+          <div>
+            <div class="ins-name" id="ins-name"></div>
+            <div class="muted small" id="ins-sub"></div>
+          </div>
+        </div>
+        <div class="ins-state" id="ins-state"></div>
+        <div class="bars" id="ins-bars"></div>
+        <div class="ins-grid" id="ins-grid"></div>
+        <div class="brain-head">Нейросеть сейчас</div>
+        <div class="muted small" id="ins-learn"></div>
+        <canvas id="brain"></canvas>
+        <div class="brain-legend small muted"><span class="sw" style="--c:#4fc3f7"></span>возбуждение <span class="sw" style="--c:#ff9a4a"></span>торможение · яркость = сила сигнала</div>
+        <details>
+          <summary>Геном (признаки)</summary>
+          <div class="traits" id="ins-traits"></div>
+        </details>
+        <div class="btns">
+          <button id="ins-follow">Следить</button>
+          <button id="ins-save" title="Сохранить геном в браузере, потом его можно посеять">Сохранить штамм</button>
+          <button id="ins-clone">Клонировать ×5</button>
+          <button id="ins-kill" class="danger">Уничтожить</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h3>Виды <span class="muted small" id="species-note"></span></h3>
+      <div class="species" id="species"></div>
+    </section>
+
+    <section>
+      <h3>Журнал наблюдений</h3>
+      <div class="log" id="log"></div>
+    </section>
+  </aside>
+
+  <div id="toasts"></div>
+  <button id="hud" class="hud hidden" title="Цели и очки жизни"><span class="hud-pts">✦ <b id="hud-pts">30</b> очков</span><span id="hud-goals">цели 0/7</span></button>
+
+  <!-- СТАРТОВОЕ МЕНЮ -->
+  <div id="menu" class="menu">
+    <div class="menu-card">
+      <div class="menu-title"><span class="logo big"></span>МИКРОМИР</div>
+      <p class="menu-sub">Живая чашка Петри: у каждой клетки своя нейросеть, которая учится за жизнь и эволюционирует из поколения в поколение.</p>
+      <div class="modes" id="modes"></div>
+      <div class="menu-foot">
+        <button id="menu-continue" class="hidden">← Вернуться к текущему миру</button>
+        <button id="menu-help">Как это работает</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ПОБЕДА -->
+  <div id="win" class="modal hidden">
+    <div class="modal-card win-card">
+      <div class="win-icon">★</div>
+      <h2>Экосистема устойчива!</h2>
+      <p id="win-text"></p>
+      <div class="btns center">
+        <button id="win-continue" class="primary">Наблюдать дальше</button>
+        <button id="win-menu">Главное меню</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <button class="icon-btn close" id="modal-close" title="Закрыть (Esc)">✕</button>
+      <h2>Микромир: как это устроено</h2>
+      <div class="modal-tabs" id="modal-tabs">
+        <button data-mtab="how" class="on">Как это работает</button>
+        <button data-mtab="bio">Биология</button>
+        <button data-mtab="zoo">Обитатели</button>
+        <button data-mtab="keys">Управление</button>
+      </div>
+      <div class="mtab" data-mtab="how">
+        <p>Каждая клетка — отдельный организм со <b>своей нейросетью</b>. Её никто не программирует: поведение появляется само из эволюции и обучения.</p>
+        <h4>Мозг клетки</h4>
+        <p><b>31 сенсор</b> → <b>14 рекуррентных нейронов</b> (они помнят прошлый шаг) → <b>9 действий</b>. Клетка чувствует запасы энергии, концентрацию органики и её градиенты (спереди/сзади, слева/справа и во времени), свет, яды, запах соседей, сигналы кворума, ближайшую добычу и угрозу, частицы детрита, боль и награду.</p>
+        <p>Действия: тяга, поворот, «кувырок», атака (фагоцитоз или гарпун), выброс токсина, сигнал кворума, деление, конъюгация, превращение в спору.</p>
+        <h4>Эволюция (между поколениями)</h4>
+        <p>При делении дочерняя клетка получает копию генома: 14 признаков (размер, жгутик, реснички, хлоропласты, броня…) и 765 весов нейросети — с мутациями. Кто лучше добывает энергию, тот чаще делится. Так естественный отбор шаг за шагом «дописывает» нейросети. Когда потомки сильно отличаются от предков, возникает <b>новый вид</b> со своим цветом и латинским названием.</p>
+        <h4>Обучение (за жизнь)</h4>
+        <p>Нейросети ещё и учатся сами, <b>с подкреплением</b> (метод возмущения нейронов). В активность нейронов подмешивается шум: клетка «пробует» чуть другое поведение. Если после этого энергия росла быстрее обычного (награда), связи сдвигаются так, чтобы повторять удачное действие. Если стало больно (токсин, гарпун, ожог), — чтобы избегать. Скорость обучения тоже наследуется и эволюционирует.</p>
+        <p>По умолчанию выученное <b>не передаётся детям</b>, как и в природе (наследование по Дарвину). Включите «Ламарковское наследование», чтобы проверить, что будет, если бы передавалось.</p>
+        <h4>Врождённые рефлексы</h4>
+        <p>Стартовые виды получают простые «рефлекторные дуги» (хемотаксис, бегство от яда, охоту), чтобы мир сразу ожил. Дальше эволюция их перестраивает. В сценарии «Первичный бульон» рефлексов нет вовсе: всё поведение изобретается с нуля.</p>
+      </div>
+      <div class="mtab hidden" data-mtab="bio">
+        <h4>Физика микромира</h4>
+        <p><b>Низкие числа Рейнольдса.</b> Для клетки вода вязкая, как мёд: инерции нет. Перестала грести — сразу остановилась. Мелкие клетки заметно дрожат от <b>броуновского движения</b>, крупные — почти нет.</p>
+        <p><b>Диффузия.</b> Органика, токсины, запахи и сигналы растекаются по чашке и распадаются. Вокруг колоний образуются «выеденные» зоны.</p>
+        <p><b>Поверхность и объём.</b> Всасывание через мембрану растёт пропорционально поверхности, а расходы — пропорционально массе<sup>0.75</sup> (закон Клайбера). Поэтому осмотрофам выгодно быть мелкими, а хищникам — крупными.</p>
+        <h4>Как добывают энергию</h4>
+        <ul>
+          <li><b>Фотосинтез</b>: хлоропласты дают энергию из света. Слишком яркий свет обжигает, поэтому водоросли держатся в кольце полутени вокруг лампы. Плотная колония сама себя затеняет.</li>
+          <li><b>Осмотрофия</b>: всасывание растворённой органики. Её дают источники, остатки погибших клеток и разложение детрита.</li>
+          <li><b>Фагоцитоз</b>: клетка обхватывает добычу и переваривает её в вакуоли. Пока идёт переваривание, она не охотится.</li>
+          <li><b>Гарпун</b> (токсицисты, система секреции VI типа): высасывает энергию жертвы при контакте и парализует её. Парализованную жертву можно проглотить, даже если она крупнее (как дидиниум глотает туфельку).</li>
+        </ul>
+        <h4>Война и сотрудничество</h4>
+        <ul>
+          <li><b>Антибиотики</b>: токсины отравляют всех без устойчивости. Выбрасывать их дорого.</li>
+          <li><b>Чувство кворума</b>: клетки выделяют сигнальные молекулы и узнают, сколько их рядом. Нейросеть может научиться атаковать только толпой.</li>
+          <li><b>Конъюгация</b>: бактерии передают «плазмиды» с генами (например, устойчивости), инфузории обмениваются частями ядер. Вместе с генами передаётся и кусочек нейросети.</li>
+          <li><b>Споры</b>: при голоде клетка может уснуть почти без затрат и проснуться, когда появится еда.</li>
+        </ul>
+      </div>
+      <div class="mtab hidden" data-mtab="zoo"><div id="zoo"></div></div>
+      <div class="mtab hidden" data-mtab="keys">
+        <table class="keys">
+          <tr><td>Пробел</td><td>пауза</td></tr>
+          <tr><td>1 … 5</td><td>скорость ×1, ×3, ×10, ×40, MAX</td></tr>
+          <tr><td>Q W E R T Y</td><td>инструменты: осмотр, питание, антибиотик, лампа, посев, лазер</td></tr>
+          <tr><td>Колесо мыши</td><td>масштаб</td></tr>
+          <tr><td>Перетаскивание</td><td>сдвиг вида (правой кнопкой — с любым инструментом)</td></tr>
+          <tr><td>F</td><td>показать всю чашку</td></tr>
+          <tr><td>C</td><td>следить за выбранной клеткой</td></tr>
+          <tr><td>Esc</td><td>снять выделение / закрыть окно</td></tr>
+          <tr><td>H</td><td>эта справка</td></tr>
+          <tr><td>M</td><td>главное меню</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/config.js"></script>
+<script src="js/genome.js"></script>
+<script src="js/brain.js"></script>
+<script src="js/species.js"></script>
+<script src="js/env.js"></script>
+<script src="js/cell.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/modes.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
