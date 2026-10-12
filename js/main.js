@@ -5,6 +5,7 @@
   initWorld('balanced');
   initRender($('view'));
   initUI();
+  changeLang(LANG);   // текст интерфейса на выбранном языке
   window.addEventListener('resize', () => { resizeCanvas(); drawChart(); });
 
   let last = performance.now();

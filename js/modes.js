@@ -6,28 +6,23 @@ const SEED_COST = { ecoli: 5, cyano: 5, strepto: 8, bdello: 10, euglena: 8, diat
 
 const GOALS = [
   {
-    id: 'photo', title: 'Да будет свет', reward: 20,
-    desc: 'Вырастите 100 фотосинтетиков одновременно',
+    id: 'photo', reward: 20,
     progress: s => [s.c.photo, 100],
   },
   {
-    id: 'chain', title: 'Пищевая цепь', reward: 20,
-    desc: 'Одновременно живут фотосинтетики, осмотрофы и пастбищные (по 5+)',
+    id: 'chain', reward: 20,
     progress: s => [['photo', 'osmo', 'grazer'].filter(k => s.c[k] >= 5).length, 3],
   },
   {
-    id: 'pop', title: 'Мегаполис', reward: 20,
-    desc: 'Население чашки достигает 800 клеток',
+    id: 'pop', reward: 20,
     progress: s => [s.total, 800],
   },
   {
-    id: 'predator', title: 'Высший хищник', reward: 25,
-    desc: 'Прокормите 20 хищников одновременно',
+    id: 'predator', reward: 25,
     progress: s => [s.c.predator, 20],
   },
   {
-    id: 'species', title: 'Происхождение видов', reward: 30,
-    desc: 'Эволюция создаёт новый вид, и он разрастается до 30 особей',
+    id: 'species', reward: 30,
     progress: () => {
       let best = 0;
       for (const sp of speciesMap.values()) if (!sp.archetype && sp.parentId && sp.count > best) best = sp.count;
@@ -35,13 +30,11 @@ const GOALS = [
     },
   },
   {
-    id: 'five', title: 'Полный круговорот', reward: 30,
-    desc: 'Живут все пять экогрупп (по 3+ клетки)',
+    id: 'five', reward: 30,
     progress: s => [CLASS_KEYS.filter(k => s.c[k] >= 3).length, 5],
   },
   {
-    id: 'stable', title: 'Устойчивая экосистема', final: true,
-    desc: 'После всех остальных целей: пять групп (по 3+) живут 2 минуты без перерыва',
+    id: 'stable', final: true,
     progress: () => [Math.floor(sim.mode.streak), 120],
   },
 ];
@@ -56,8 +49,8 @@ function initMode(preset) {
     streak: 0,
     won: false, wonAt: 0, justWon: false,
   };
-  if (preset === 'genesis') simLog('Чашка пуста. Кликайте по ней, чтобы сеять. Начните с цианобактерий поближе к лампе.', 'goal');
-  else if (preset === 'sandbox') simLog('Песочница: кликайте по чашке, чтобы сеять. Кого — выберите в панели инструментов.', 'info');
+  if (preset === 'genesis') simLog('log.genesis', null, 'goal');
+  else if (preset === 'sandbox') simLog('log.sandbox', null, 'info');
 }
 
 function isGenesis() { return sim.mode && sim.mode.kind === 'genesis'; }
@@ -92,10 +85,10 @@ function modeTick() {
     m.done.add(g.id);
     if (g.final) {
       m.won = true; m.wonAt = sim.time; m.justWon = true;
-      simLog(`Победа! Устойчивая экосистема создана за ${fmtTime(sim.time)}`, 'goal');
+      simLog('log.win', { time: fmtTime(sim.time) }, 'goal');
     } else {
       m.budget = Math.min(m.budgetMax, m.budget + g.reward);
-      simLog(`Цель выполнена: «${g.title}» (+${g.reward} очков жизни)`, 'goal');
+      simLog('log.goal', { goal: { k: 'goal.' + g.id + '.title' }, n: g.reward }, 'goal');
     }
   }
 }

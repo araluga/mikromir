@@ -235,7 +235,8 @@ table.keys td:first-child { color: var(--ink); font-weight: 600; white-space: no
 .goal .gd { font-size: 11px; color: var(--ink-3); }
 .goal .fl { height: 100%; background: var(--accent-2); border-radius: 3px; }
 .goal.done { border-color: rgba(95,224,197,0.45); background: rgba(95,224,197,0.06); }
-.goal.done .gt::before { content: '✓ '; color: var(--accent); }
+.goal .gn { font-weight: 600; }
+.goal.done .gn::before { content: '✓ '; color: var(--accent); }
 .goal.final { border-style: dashed; }
 .cur-mode b { font-size: 13px; }
 .cur-mode .hint { margin-top: 2px; }
@@ -244,6 +245,16 @@ table.keys td:first-child { color: var(--ink); font-weight: 600; white-space: no
 .win-card { text-align: center; width: min(460px, 100%); }
 .win-icon { font-size: 54px; color: #f2c14e; text-shadow: 0 0 30px rgba(242,193,78,0.6); line-height: 1; }
 .btns.center { justify-content: center; }
+
+/* ── язык ── */
+html[lang="en"] [data-lang="ru"], html[lang="ru"] [data-lang="en"] { display: none !important; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink-2); padding: 6px 12px; cursor: pointer; font-size: 12px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover { color: var(--ink); }
+.seg button.on { background: var(--accent-2); color: #031510; font-weight: 700; }
+.menu-foot .seg button { border-radius: 0; padding: 8px 14px; background: rgba(11,20,29,0.9); }
+.menu-foot .seg button.on { background: var(--accent-2); }
 
 /* ── адаптив ── */
 @media (max-width: 1250px) {

@@ -11,14 +11,6 @@ const ui = {
 };
 const $ = (id) => document.getElementById(id);
 
-const TOOL_HINTS = {
-  inspect: 'Кликните по клетке, чтобы увидеть её нейросеть. Тяните мышью — двигать вид, колесо — масштаб.',
-  nutrient: 'Зажмите и ведите — в воду растворяется органика. Осмотрофы (бактерии) потянутся к ней по градиенту.',
-  toxin: 'Капля антибиотика убивает клетки без устойчивости. Проверьте, как быстро эволюция найдёт ответ.',
-  lamp: 'Кликните или тяните, чтобы переставить лампу. Фотосинтетики поплывут за светом.',
-  spawn: 'Клик — посеять колонию выбранных клеток.',
-  laser: 'Зажмите — лазер выжигает клетки под кистью. Останки станут детритом.',
-};
 
 // ───── штаммы (сохранённые геномы) ─────
 const STRAIN_KEY = 'mikromir.strains.v1';
@@ -35,16 +27,16 @@ function fillSeedSelect() {
   const sel = $('seed');
   const cur = ui.seed;
   sel.innerHTML = '';
-  const g1 = document.createElement('optgroup'); g1.label = 'Обитатели';
-  const costTxt = (v) => isGenesis() ? ` — ${seedCost(v)} оч.` : '';
-  for (const a of ARCHETYPES) g1.appendChild(new Option(a.name + costTxt('arc:' + a.key), 'arc:' + a.key));
+  const g1 = document.createElement('optgroup'); g1.label = t('seed.g1');
+  const costTxt = (v) => isGenesis() ? ` — ${seedCost(v)} ${t('pts')}` : '';
+  for (const a of ARCHETYPES) g1.appendChild(new Option(t('arc.' + a.key + '.name') + costTxt('arc:' + a.key), 'arc:' + a.key));
   sel.appendChild(g1);
-  const g2 = document.createElement('optgroup'); g2.label = 'Эксперимент';
-  g2.appendChild(new Option('Случайные геномы (без рефлексов)' + costTxt('random'), 'random'));
+  const g2 = document.createElement('optgroup'); g2.label = t('seed.g2');
+  g2.appendChild(new Option(t('seed.random') + costTxt('random'), 'random'));
   sel.appendChild(g2);
   if (ui.strains.length) {
-    const g3 = document.createElement('optgroup'); g3.label = 'Сохранённые штаммы';
-    ui.strains.forEach((s, i) => g3.appendChild(new Option(`★ ${s.name} (пок. ${s.gen})` + costTxt('strain:' + i), 'strain:' + i)));
+    const g3 = document.createElement('optgroup'); g3.label = t('seed.g3');
+    ui.strains.forEach((s, i) => g3.appendChild(new Option(`★ ${s.name} (${t('gen.short')} ${s.gen})` + costTxt('strain:' + i), 'strain:' + i)));
     sel.appendChild(g3);
   }
   sel.value = cur;
@@ -53,14 +45,14 @@ function fillSeedSelect() {
 }
 
 function updateSeedCost() {
-  $('seed-cost').textContent = isGenesis() ? `стоимость: ${seedCost(ui.seed)} оч.` : '';
+  $('seed-cost').textContent = isGenesis() ? t('seed.cost', { n: seedCost(ui.seed) }) : '';
 }
 
 function spawnSeed(x, y) {
   const v = ui.seed;
   const cost = seedCost(v);
   if (!trySpend(cost)) {
-    simLog(`Не хватает очков жизни: нужно ${cost}, есть ${Math.floor(sim.mode.budget)}. Они копятся со временем и за цели.`, 'warn');
+    simLog('log.noPoints', { cost, have: Math.floor(sim.mode.budget) }, 'warn');
     return;
   }
   let out = [];
@@ -82,7 +74,7 @@ function spawnSeed(x, y) {
     }
     out = spawnGenome(g, sp, maxRadiusOf(g.t) > 7 ? 4 : 10, x, y, 40);
   }
-  if (out.length) simLog(`Посеяно: ${out[0].sp.title} ×${out.length}`, 'info');
+  if (out.length) simLog('log.seeded', { sp: out[0].sp, n: out.length }, 'info');
 }
 
 // ───── инициализация ─────
@@ -115,7 +107,7 @@ function initUI() {
     inp.checked = SETTINGS[key];
     inp.addEventListener('change', () => {
       SETTINGS[key] = inp.checked;
-      if (key === 'lamarck') simLog(inp.checked ? 'Включено ламарковское наследование: дети получают выученное родителями' : 'Наследование снова по Дарвину', 'info');
+      if (key === 'lamarck') simLog(inp.checked ? 'log.lamarckOn' : 'log.lamarckOff', null, 'info');
     });
   }
 
@@ -154,12 +146,12 @@ function initUI() {
 
   // инспектор
   $('ins-follow').addEventListener('click', toggleFollow);
-  $('ins-kill').addEventListener('click', () => { const s = sim.selected; if (s && !s.dead) s.die('уничтожена исследователем'); });
+  $('ins-kill').addEventListener('click', () => { const s = sim.selected; if (s && !s.dead) s.die('killed'); });
   $('ins-clone').addEventListener('click', () => {
     const s = sim.selected;
     if (!s) return;
     spawnGenome(s.g, s.sp, 5, s.x, s.y, 40);
-    simLog(`Клонировано: ${s.sp.title} ×5`, 'info');
+    simLog('log.cloned', { sp: s.sp }, 'info');
   });
   $('ins-save').addEventListener('click', () => {
     const s = sim.selected;
@@ -171,7 +163,7 @@ function initUI() {
     if (ui.strains.length > 30) ui.strains.shift();
     const ok = saveStrains();
     fillSeedSelect();
-    simLog(ok ? `Штамм сохранён: ${s.sp.title} #${s.id} — его можно посеять инструментом «Посев»` : 'Штамм добавлен в список посева, но браузер не дал сохранить его надолго', 'species');
+    simLog(ok ? 'log.strainSaved' : 'log.strainSession', { name: `${s.sp.title} #${s.id}` }, 'species');
   });
 
   // справка
@@ -184,10 +176,10 @@ function initUI() {
     document.querySelectorAll('#modal-tabs button').forEach(x => x.classList.toggle('on', x === b));
     document.querySelectorAll('.mtab').forEach(x => x.classList.toggle('hidden', x.dataset.mtab !== b.dataset.mtab));
   });
-  $('zoo').innerHTML = ARCHETYPES.map(a => {
-    const c = classify(archetypeGenome(a, 0).t);
-    return `<div class="zoo-item"><span class="dot" style="--c:${CLASSES[c.cls].color}"></span><div><b>${a.name}</b><i>${a.latin}</i> <span class="muted small">· ${CLASSES[c.cls].name.toLowerCase()}</span><p>${a.info}</p></div></div>`;
-  }).join('');
+  buildZoo();
+
+  // язык
+  document.querySelectorAll('[data-setlang]').forEach(b => b.addEventListener('click', () => changeLang(b.dataset.setlang)));
 
   // мобильные панели
   $('btn-left').addEventListener('click', () => { $('left').classList.toggle('open'); $('right').classList.remove('open'); });
@@ -205,12 +197,12 @@ function onWorldReset() {
   selectCell(null);
 }
 
-function setTool(t) {
-  ui.tool = t;
-  document.querySelectorAll('#tools button').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
-  $('tool-hint').textContent = TOOL_HINTS[t];
-  $('row-brush').classList.toggle('hidden', !(t === 'nutrient' || t === 'toxin' || t === 'laser'));
-  $('row-seed').classList.toggle('hidden', t !== 'spawn');
+function setTool(tool) {
+  ui.tool = tool;
+  document.querySelectorAll('#tools button').forEach(b => b.classList.toggle('on', b.dataset.tool === tool));
+  $('tool-hint').textContent = t('hint.' + tool);
+  $('row-brush').classList.toggle('hidden', !(tool === 'nutrient' || tool === 'toxin' || tool === 'laser'));
+  $('row-seed').classList.toggle('hidden', tool !== 'spawn');
 }
 
 function setSpeed(s) {
@@ -226,7 +218,7 @@ function toggleModal(show) {
 function toggleFollow() {
   cam.follow = !cam.follow && !!sim.selected;
   $('ins-follow').classList.toggle('on', cam.follow);
-  $('ins-follow').textContent = cam.follow ? 'Не следить' : 'Следить';
+  $('ins-follow').textContent = t(cam.follow ? 'ins.unfollow' : 'ins.follow');
   if (cam.follow && cam.z < 1.2) cam.z = 1.6;
 }
 
@@ -236,7 +228,7 @@ function selectCell(c) {
   $('inspector').classList.toggle('hidden', !c);
   $('inspector-empty').classList.toggle('hidden', !!c);
   $('ins-follow').classList.toggle('on', cam.follow);
-  $('ins-follow').textContent = cam.follow ? 'Не следить' : 'Следить';
+  $('ins-follow').textContent = t(cam.follow ? 'ins.unfollow' : 'ins.follow');
   if (c) {
     buildTraitRows(c);
     ui.lastIns = 0;
@@ -344,7 +336,7 @@ function applyTools(dt) {
     for (const c of sim.cells) {
       if (c.dead) continue;
       const dx = c.x - wx, dy = c.y - wy;
-      if (dx * dx + dy * dy < r2) c.die('лазер');
+      if (dx * dx + dy * dy < r2) c.die('laser');
     }
     let w = 0;
     for (const c of sim.cells) if (!c.dead) sim.cells[w++] = c;
@@ -389,7 +381,7 @@ function updateUI(now) {
 function updateKpis() {
   $('k-time').textContent = fmtTime(sim.time);
   const day = env.day > 0.45;
-  $('k-daylbl').textContent = !SETTINGS.dayCycle ? 'Свет' : day ? 'День' : 'Ночь';
+  $('k-daylbl').textContent = t(!SETTINGS.dayCycle ? 'kpi.light' : day ? 'kpi.day' : 'kpi.night');
   $('k-day').textContent = (day ? '☀ ' : '☾ ') + Math.round(env.day * 100) + '%';
   $('k-pop').textContent = fmtNum(sim.cells.length);
   let alive = 0;
@@ -408,44 +400,52 @@ function flushLogs() {
   if (!fresh.length) return;
   ui.logSeen = last;
   const box = $('log');
-  for (const l of fresh) {
-    const d = document.createElement('div');
-    d.className = l.kind;
-    const tm = document.createElement('time');
-    tm.textContent = fmtTime(l.t);
-    d.appendChild(tm);
-    d.appendChild(document.createTextNode(l.msg));
-    box.prepend(d);
-  }
+  for (const l of fresh) box.prepend(logRow(l));
   while (box.children.length > 60) box.lastChild.remove();
   const ts = $('toasts');
   for (const l of fresh.slice(-3)) {
-    if (l.kind === 'info' && /Посеяно|Клонировано/.test(l.msg)) continue;
-    const t = document.createElement('div');
-    t.className = 'toast ' + l.kind;
-    t.textContent = l.msg;
-    ts.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; }, 5500);
-    setTimeout(() => t.remove(), 6200);
+    if (l.key === 'log.seeded' || l.key === 'log.cloned') continue;
+    const el = document.createElement('div');
+    el.className = 'toast ' + l.kind;
+    el.textContent = logText(l);
+    ts.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; }, 5500);
+    setTimeout(() => el.remove(), 6200);
   }
   while (ts.children.length > 4) ts.firstChild.remove();
+}
+
+function logText(l) { return t(l.key, l.params); }
+function logRow(l) {
+  const d = document.createElement('div');
+  d.className = l.kind;
+  const tm = document.createElement('time');
+  tm.textContent = fmtTime(l.t);
+  d.appendChild(tm);
+  d.appendChild(document.createTextNode(logText(l)));
+  return d;
+}
+function rebuildLog() {
+  const box = $('log');
+  box.innerHTML = '';
+  for (const l of sim.logs.slice(-60)) box.prepend(logRow(l));
 }
 
 function updateSpecies() {
   const list = [...speciesMap.values()].filter(s => s.count > 0).sort((a, b) => b.count - a.count);
   const extinct = [...speciesMap.values()].filter(s => s.count === 0 && s.established).length;
-  $('species-note').textContent = `живых ${list.length} · вымерло ${extinct}`;
+  $('species-note').textContent = t('sp.note', { a: list.length, b: extinct });
   const max = list.length ? list[0].count : 1;
   const box = $('species');
   box.innerHTML = '';
   for (const s of list.slice(0, 14)) {
     const row = document.createElement('div');
     row.className = 'sp-row';
-    row.title = 'Показать случайную особь этого вида';
+    row.title = t('sp.tt');
     row.innerHTML = `<span class="dot" style="--c:${s.cSolid}"></span>
-      <div class="nm"><div>${s.title}</div><small>${s.latin} · ${CLASSES[s.cls].name.toLowerCase()}${s.parentName ? ' · от ' + s.parentName : ''}</small>
+      <div class="nm"><div>${s.title}</div><small>${s.latin} · ${t('cls.' + s.cls).toLowerCase()}${s.parentName ? ' · ' + t('sp.from') + ' ' + s.parentName : ''}</small>
       <div class="sp-bar" style="--c:${s.cSolid};width:${Math.max(3, s.count / max * 100)}%"></div></div>
-      <div class="ct">${s.count}<small>пок. ${s.maxGen}</small></div>`;
+      <div class="ct">${s.count}<small>${t('gen.short')} ${s.maxGen}</small></div>`;
     row.addEventListener('click', () => {
       const cs = sim.cells.filter(c => c.sp === s);
       if (!cs.length) return;
@@ -453,14 +453,14 @@ function updateSpecies() {
       cam.follow = true;
       if (cam.z < 1.4) cam.z = 2;
       $('ins-follow').classList.add('on');
-      $('ins-follow').textContent = 'Не следить';
+      $('ins-follow').textContent = t('ins.unfollow');
     });
     box.appendChild(row);
   }
   if (list.length > 14) {
     const m = document.createElement('div');
     m.className = 'hint';
-    m.textContent = `…и ещё ${list.length - 14} редких видов`;
+    m.textContent = t('sp.more', { n: list.length - 14 });
     box.appendChild(m);
   }
 }
@@ -472,8 +472,9 @@ function buildTraitRows(c) {
   for (let i = 0; i < N_TRAITS; i++) {
     const row = document.createElement('div');
     row.className = 'bar';
-    row.title = TRAIT_INFO[i][1];
-    row.innerHTML = `<span>${TRAIT_INFO[i][0]}</span><div class="tr"><div class="fl" style="--c:#5fb8d8"></div></div><b></b>`;
+    const info = t('traits')[i];
+    row.title = info[1];
+    row.innerHTML = `<span>${info[0]}</span><div class="tr"><div class="fl" style="--c:#5fb8d8"></div></div><b></b>`;
     box.appendChild(row);
   }
 }
@@ -488,33 +489,34 @@ function updateInspector() {
   const sp = c.sp;
   $('ins-dot').style.setProperty('--c', sp.cSolid);
   $('ins-name').textContent = sp.title;
-  $('ins-sub').textContent = `«${sp.latin}» · особь #${c.id} · поколение ${c.gen}`;
+  $('ins-sub').textContent = t('ins.sub', { latin: sp.latin, id: c.id, gen: c.gen });
   const chips = [];
-  const act = c.activity();
+  const cause = t('cause.' + (c.cause || 'exhaust'));
+  const act = t('act.' + c.activity(), { cause });
   chips.push(`<span class="chip ${c.dead ? 'bad' : 'hot'}">${act}</span>`);
-  chips.push(`<span class="chip">${CLASSES[sp.cls].name}</span>`);
-  chips.push(`<span class="chip">${c.euk > 0.5 ? 'эукариот' : 'прокариот'}</span>`);
+  chips.push(`<span class="chip">${t('cls.' + sp.cls)}</span>`);
+  chips.push(`<span class="chip">${t(c.euk > 0.5 ? 'ins.euk' : 'ins.prok')}</span>`);
   if (!c.dead && c.state === 0) {
-    if (c.attack && (c.t[T.PHAGO] > 0.1 || c.t[T.HARPOON] > 0.1)) chips.push('<span class="chip hot">готова атаковать</span>');
-    if (c.digest > 0) chips.push('<span class="chip">переваривает</span>');
-    if (c.sigOut > 0.2) chips.push('<span class="chip hot">сигнал кворума</span>');
-    if (c.thr && c.thrGap < SENSE_RANGE) chips.push('<span class="chip bad">чует угрозу</span>');
-    if (c.dmg > 0.03) chips.push(`<span class="chip bad">боль: ${c.cause}</span>`);
+    if (c.attack && (c.t[T.PHAGO] > 0.1 || c.t[T.HARPOON] > 0.1)) chips.push(`<span class="chip hot">${t('chip.attack')}</span>`);
+    if (c.digest > 0) chips.push(`<span class="chip">${t('chip.digest')}</span>`);
+    if (c.sigOut > 0.2) chips.push(`<span class="chip hot">${t('chip.signal')}</span>`);
+    if (c.thr && c.thrGap < SENSE_RANGE) chips.push(`<span class="chip bad">${t('chip.threat')}</span>`);
+    if (c.dmg > 0.03) chips.push(`<span class="chip bad">${t('chip.pain', { cause })}</span>`);
   }
   $('ins-state').innerHTML = chips.join('');
   $('ins-bars').innerHTML =
-    barHTML('Энергия', c.energy / c.cap, Math.round(c.energy / c.cap * 100) + '%', '#f2c14e') +
-    barHTML('Здоровье', c.health, Math.round(c.health * 100) + '%', '#ef6f6c') +
-    barHTML('Рост', c.mass / c.maxMass, Math.round(c.mass / c.maxMass * 100) + '%', '#5fe0c5') +
-    barHTML('Награда', (c.reward + 1) / 2, (c.reward >= 0 ? '+' : '') + c.reward.toFixed(2), c.reward >= 0 ? '#7bd88f' : '#ff8a7a');
+    barHTML(t('bar.energy'), c.energy / c.cap, Math.round(c.energy / c.cap * 100) + '%', '#f2c14e') +
+    barHTML(t('bar.health'), c.health, Math.round(c.health * 100) + '%', '#ef6f6c') +
+    barHTML(t('bar.growth'), c.mass / c.maxMass, Math.round(c.mass / c.maxMass * 100) + '%', '#5fe0c5') +
+    barHTML(t('bar.reward'), (c.reward + 1) / 2, (c.reward >= 0 ? '+' : '') + c.reward.toFixed(2), c.reward >= 0 ? '#7bd88f' : '#ff8a7a');
   const inc = (v) => v > 0.05 ? (v / c.m75 * 100).toFixed(0) : '—';
   $('ins-grid').innerHTML = [
-    ['Возраст', fmtTime(c.age)], ['Потомков', c.kids], ['Жертв', c.kills],
-    ['Фотосинтез', inc(c.gP)], ['Осмотрофия', inc(c.gO)], ['Охота', inc(c.gH)],
-    ['Размер, мкм', (c.r * 2).toFixed(1)], ['Скорость', Math.round(Math.hypot(c.vx, c.vy))], ['Свои рядом', c.kinN],
-  ].map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
+    ['g.age', fmtTime(c.age)], ['g.kids', c.kids], ['g.kills', c.kills],
+    ['g.photo', inc(c.gP)], ['g.osmo', inc(c.gO)], ['g.hunt', inc(c.gH)],
+    ['g.size', (c.r * 2).toFixed(1)], ['g.speed', Math.round(Math.hypot(c.vx, c.vy))], ['g.kin', c.kinN],
+  ].map(([a, b]) => `<div><span>${t(a)}</span><b>${b}</b></div>`).join('');
   const lr = c.eta;
-  $('ins-learn').textContent = lr > 0.0004 ? `обучение η=${(lr * 1000).toFixed(1)}‰ · выучено |Δw|=${c.brain.dMag.toFixed(3)}` : 'не обучается (ген пластичности ≈ 0)';
+  $('ins-learn').textContent = lr > 0.0004 ? t('ins.learn', { eta: (lr * 1000).toFixed(1), dw: c.brain.dMag.toFixed(3) }) : t('ins.nolearn');
   const rows = $('ins-traits').children;
   for (let i = 0; i < N_TRAITS && i < rows.length; i++) {
     const v = c.t[i];
@@ -591,10 +593,11 @@ function drawBrain() {
   ctx.font = '9.5px "Segoe UI", system-ui, sans-serif';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'right';
+  const inNames = t('in'), outNames = t('out');
   for (let i = 0; i < N_IN; i++) {
     node(xi, yi(i), b.inp[i], 3.2);
     ctx.fillStyle = Math.abs(b.inp[i]) > 0.05 ? '#c9d8e4' : '#5f7486';
-    ctx.fillText(IN_NAMES[i], xi - 7, yi(i));
+    ctx.fillText(inNames[i], xi - 7, yi(i));
   }
   for (let j = 0; j < N_HID; j++) node(xh, yh(j), b.h[j], 4.5);
   ctx.textAlign = 'left';
@@ -603,7 +606,7 @@ function drawBrain() {
     node(xo, yo(o), v, 6);
     ctx.fillStyle = v > 0.2 ? '#eaf3f8' : '#7d93a5';
     ctx.font = (v > 0.2 ? '600 ' : '') + '11px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(OUT_NAMES[o], xo + 10, yo(o) - 4);
+    ctx.fillText(outNames[o], xo + 10, yo(o) - 4);
     ctx.font = '9px "Segoe UI", system-ui, sans-serif';
     ctx.fillStyle = '#6c8194';
     ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(2), xo + 10, yo(o) + 8);
@@ -614,16 +617,16 @@ function drawBrain() {
 const CHARTS = {
   pop: {
     stacked: true,
-    series: () => CLASS_KEYS.map(k => ({ name: CLASSES[k].name, color: CLASSES[k].color, get: h => h.c[k] })),
+    series: () => CLASS_KEYS.map(k => ({ name: t('cls.' + k), color: CLASSES[k].color, get: h => h.c[k] })),
   },
-  species: { series: () => [{ name: 'Живых видов', color: '#2f95cc', get: h => h.species }] },
+  species: { series: () => [{ name: t('chart.species'), color: '#2f95cc', get: h => h.species }] },
   gen: {
     series: () => [
-      { name: 'Макс. поколение', color: '#a35ee0', get: h => h.maxGen },
-      { name: 'Среднее поколение', color: '#3fa64e', get: h => h.avgGen },
+      { name: t('chart.maxGen'), color: '#a35ee0', get: h => h.maxGen },
+      { name: t('chart.avgGen'), color: '#3fa64e', get: h => h.avgGen },
     ],
   },
-  learn: { series: () => [{ name: 'Выучено за жизнь, средн. |Δw| ×1000', color: '#b4880f', get: h => h.plast * 1000 }] },
+  learn: { series: () => [{ name: t('chart.plast'), color: '#b4880f', get: h => h.plast * 1000 }] },
 };
 
 function drawChart() {
@@ -709,7 +712,7 @@ function drawChart() {
       ctx.fillStyle = se.color; ctx.fill();
       ctx.strokeStyle = '#0b141d'; ctx.lineWidth = 2; ctx.stroke();
     }
-    tip.innerHTML = `<div class="muted">${fmtTime(h.t)}${spec.stacked ? ' · всего ' + h.total : ''}</div>` +
+    tip.innerHTML = `<div class="muted">${fmtTime(h.t)}${spec.stacked ? ' · ' + t('chart.total') + ' ' + h.total : ''}</div>` +
       series.slice().reverse().map(se => `<div class="r"><span class="sw" style="--c:${se.color}"></span>${se.name}<b>${fmtVal(se.get(h))}</b></div>`).join('');
     tip.classList.remove('hidden');
     const tw = tip.offsetWidth;
@@ -719,7 +722,7 @@ function drawChart() {
 
   const last = hist[n - 1];
   legend.innerHTML = series.map(se => `<span><span class="sw" style="--c:${se.color}"></span>${se.name}: <b>${fmtVal(se.get(last))}</b></span>`).join('') +
-    (ui.chartTab === 'learn' ? `<span class="muted">средний ген пластичности: ${last.learn.toFixed(2)}</span>` : '');
+    (ui.chartTab === 'learn' ? `<span class="muted">${t('chart.learnGene', { v: last.learn.toFixed(2) })}</span>` : '');
 }
 function fmtVal(v) { return Number.isInteger(v) ? fmtNum(v) : v < 10 ? v.toFixed(1) : fmtNum(v); }
 function niceMax(v) {
@@ -748,7 +751,7 @@ function buildMenu() {
       dots += `<i style="--c:${CLASSES[cls].color};left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;transform:rotate(${(Math.random() * 180) | 0}deg)"></i>`;
     }
     b.innerHTML = `<div class="dish${p.empty ? ' empty' : ''}">${dots}</div>
-      <div><span class="tag">${p.tag}</span><b>${p.name}</b><p>${p.desc}</p></div>`;
+      <div><span class="tag">${t('preset.' + key + '.tag')}</span><b>${t('preset.' + key + '.name')}</b><p>${t('preset.' + key + '.desc')}</p></div>`;
     b.addEventListener('click', () => startMode(key));
     box.appendChild(b);
   }
@@ -775,8 +778,7 @@ function startMode(key) {
   fitCamera();
   setSpeed(1);
   const P = PRESETS[key];
-  $('cur-mode').textContent = P.name;
-  $('preset-desc').textContent = P.desc;
+  showModeInfo();
   $('goals-sec').classList.toggle('hidden', key !== 'genesis');
   $('hud').classList.toggle('hidden', key !== 'genesis');
   if (P.empty) {
@@ -793,9 +795,9 @@ function syncSettingsUI() {
 
 function buildGoals() {
   $('goals').innerHTML = GOALS.map(g => `
-    <div class="goal${g.final ? ' final' : ''}" id="goal-${g.id}" title="${g.final ? 'Финальная цель' : 'Награда: +' + g.reward + ' очков жизни'}">
-      <div class="gt">${g.title}<span></span></div>
-      <div class="gd">${g.desc}</div>
+    <div class="goal${g.final ? ' final' : ''}" id="goal-${g.id}" title="${g.final ? t('goal.ttFinal') : t('goal.tt', { n: g.reward })}">
+      <div class="gt"><b class="gn">${t('goal.' + g.id + '.title')}</b><span></span></div>
+      <div class="gd">${t('goal.' + g.id + '.desc')}</div>
       <div class="tr"><div class="fl"></div></div>
     </div>`).join('');
 }
@@ -804,9 +806,9 @@ function updateGoals() {
   const m = sim.mode;
   $('budget-v').textContent = Math.floor(m.budget);
   $('budget-bar').style.width = (m.budget / m.budgetMax * 100) + '%';
-  $('goals-count').textContent = `${m.done.size} из ${GOALS.length}`;
+  $('goals-count').textContent = t('goals.of', { a: m.done.size, b: GOALS.length });
   $('hud-pts').textContent = Math.floor(m.budget);
-  $('hud-goals').textContent = `цели ${m.done.size}/${GOALS.length}`;
+  $('hud-goals').textContent = t('hud.goals', { a: m.done.size, b: GOALS.length });
   for (const g of GOALS) {
     const el = $('goal-' + g.id);
     if (!el) continue;
@@ -818,7 +820,36 @@ function updateGoals() {
   }
   if (m.justWon) {
     m.justWon = false;
-    $('win-text').textContent = `Все пять экологических групп сосуществуют уже две минуты. Мир выращен с нуля за ${fmtTime(m.wonAt)} модельного времени: родилось ${fmtNum(sim.totalBorn)} клеток, максимальное поколение — ${sim.maxGen}, новых видов возникло: ${sim.newSpecies}.`;
+    $('win-text').textContent = t('win.text', { time: fmtTime(m.wonAt), born: fmtNum(sim.totalBorn), gen: sim.maxGen, sp: sim.newSpecies });
     $('win').classList.remove('hidden');
   }
+}
+
+// ───── язык ─────
+function buildZoo() {
+  $('zoo').innerHTML = ARCHETYPES.map(a => {
+    const c = classify(archetypeGenome(a, 0).t);
+    return `<div class="zoo-item"><span class="dot" style="--c:${CLASSES[c.cls].color}"></span><div><b>${t('arc.' + a.key + '.name')}</b><i>${a.latin}</i> <span class="muted small">· ${t('cls.' + c.cls).toLowerCase()}</span><p>${t('arc.' + a.key + '.info')}</p></div></div>`;
+  }).join('');
+}
+
+function showModeInfo() {
+  $('cur-mode').textContent = t('preset.' + sim.preset + '.name');
+  $('preset-desc').textContent = t('preset.' + sim.preset + '.desc');
+}
+
+function changeLang(l) {
+  setLang(l);
+  applyI18n();
+  document.querySelectorAll('[data-setlang]').forEach(b => b.classList.toggle('on', b.dataset.setlang === LANG));
+  setTool(ui.tool);
+  fillSeedSelect();
+  buildMenu();
+  buildZoo();
+  showModeInfo();
+  if (isGenesis()) { buildGoals(); updateGoals(); }
+  rebuildLog();
+  $('ins-follow').textContent = t(cam.follow ? 'ins.unfollow' : 'ins.follow');
+  if (sim.selected) { buildTraitRows(sim.selected); updateInspector(); drawBrain(); }
+  updateKpis(); updateSpecies(); drawChart();
 }

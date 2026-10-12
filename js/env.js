@@ -135,7 +135,7 @@ function envStep(dt) {
     if (dd > lim) { v.x = WORLD.cx + dx / dd * lim; v.y = WORLD.cy + dy / dd * lim; v.vx = -v.vx; v.vy = -v.vy; }
     if (v.age > v.life) {
       env.vents[i] = newVent();
-      simLog('Источник органики иссяк — где-то забил новый', 'env');
+      simLog('log.vent', null, 'env');
     }
   }
   fieldStep(env.N, dt, 0.0012 * SETTINGS.nutrient * dt);

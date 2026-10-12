@@ -7,25 +7,25 @@ let nextSpeciesId = 1;
 function classify(t) {
   const r = maxRadiusOf(t);
   if (r < 6.5) {
-    if (t[T.HARPOON] > 0.4 && t[T.HARPOON] > t[T.CHLORO]) return { cls: 'predator', label: 'Бактерия-хищник' };
-    if (t[T.CHLORO] > 0.4) return { cls: 'photo', label: 'Цианобактерия' };
-    if (t[T.TOXIN] > 0.4) return { cls: 'toxic', label: 'Актиномицет' };
-    return { cls: 'osmo', label: t[T.FLAG] > 0.4 ? 'Подвижная бактерия' : 'Бактерия' };
+    if (t[T.HARPOON] > 0.4 && t[T.HARPOON] > t[T.CHLORO]) return { cls: 'predator', label: 'predBact' };
+    if (t[T.CHLORO] > 0.4) return { cls: 'photo', label: 'cyano' };
+    if (t[T.TOXIN] > 0.4) return { cls: 'toxic', label: 'actino' };
+    return { cls: 'osmo', label: t[T.FLAG] > 0.4 ? 'motileBact' : 'bact' };
   }
   const chl = t[T.CHLORO], ph = t[T.PHAGO];
   if (chl > 0.4) {
-    if (ph > 0.35) return { cls: 'photo', label: 'Миксотроф' };
-    if (t[T.ARMOR] > 0.45 && t[T.FLAG] < 0.35) return { cls: 'photo', label: 'Диатомея' };
-    return { cls: 'photo', label: t[T.FLAG] > 0.3 ? 'Жгутиковая водоросль' : 'Водоросль' };
+    if (ph > 0.35) return { cls: 'photo', label: 'mixo' };
+    if (t[T.ARMOR] > 0.45 && t[T.FLAG] < 0.35) return { cls: 'photo', label: 'diatom' };
+    return { cls: 'photo', label: t[T.FLAG] > 0.3 ? 'flagAlga' : 'alga' };
   }
-  if (t[T.HARPOON] > 0.4) return { cls: 'predator', label: t[T.CILIA] >= t[T.PSEUDO] ? 'Хищная инфузория' : 'Хищный протист' };
+  if (t[T.HARPOON] > 0.4) return { cls: 'predator', label: t[T.CILIA] >= t[T.PSEUDO] ? 'predCiliate' : 'predProtist' };
   if (ph > 0.35) {
-    if (t[T.PSEUDO] >= t[T.CILIA] && t[T.PSEUDO] >= t[T.FLAG]) return r > 15 ? { cls: 'predator', label: 'Амёба' } : { cls: 'grazer', label: 'Мелкая амёба' };
-    if (t[T.CILIA] >= t[T.FLAG]) return r > 16 ? { cls: 'predator', label: 'Крупная инфузория' } : { cls: 'grazer', label: 'Инфузория' };
-    return { cls: 'grazer', label: 'Жгутиконосец' };
+    if (t[T.PSEUDO] >= t[T.CILIA] && t[T.PSEUDO] >= t[T.FLAG]) return r > 15 ? { cls: 'predator', label: 'amoeba' } : { cls: 'grazer', label: 'smallAmoeba' };
+    if (t[T.CILIA] >= t[T.FLAG]) return r > 16 ? { cls: 'predator', label: 'bigCiliate' } : { cls: 'grazer', label: 'ciliate' };
+    return { cls: 'grazer', label: 'flagellate' };
   }
-  if (t[T.TOXIN] > 0.4) return { cls: 'toxic', label: 'Токсичный протист' };
-  return { cls: 'osmo', label: 'Осмотрофный протист' };
+  if (t[T.TOXIN] > 0.4) return { cls: 'toxic', label: 'toxProtist' };
+  return { cls: 'osmo', label: 'osmoProtist' };
 }
 
 const GENUS_A = ['Proto', 'Micro', 'Bacillo', 'Chloro', 'Cyano', 'Para', 'Amoe', 'Dini', 'Stento', 'Vorti', 'Eugle', 'Strepto', 'Bdello', 'Myxo', 'Volvo', 'Tricho', 'Litho', 'Spiro', 'Nano', 'Crypto', 'Halo', 'Rhizo', 'Gymno', 'Lepto', 'Acantho', 'Phaeo', 'Pyro', 'Thermo'];
@@ -43,9 +43,10 @@ class Species {
     this.parentName = parent ? parent.latin : null;
     const c = classify(genome.t);
     this.cls = c.cls;
-    this.label = opts.label || c.label;
+    this.label = c.label;              // ключ названия (label.*), переводится в title
+    this.arcKey = opts.arcKey || null;  // прототип реального организма
+    this.customName = opts.name || null; // имя сохранённого штамма
     this.latin = opts.latin || latinName();
-    this.title = opts.name || this.label;
     const base = parent && parent.cls === this.cls ? parent.hue + randn() * 22 : CLASSES[this.cls].hue + randn() * 14;
     this.hue = ((opts.hue ?? base) % 360 + 360) % 360;
     this.count = 0; this.maxCount = 0; this.total = 0; this.maxGen = 0;
@@ -63,6 +64,11 @@ class Species {
     this.cSolid = `hsl(${h},72%,62%)`;
     this.cDark = `hsla(${h},50%,28%,0.6)`;
     this.cNuc = `hsla(${(h + 200) % 360},35%,22%,0.75)`;
+  }
+  get title() {
+    if (this.customName) return this.customName;
+    if (this.arcKey) return t('arc.' + this.arcKey + '.name');
+    return t('label.' + this.label);
   }
   get fullName() { return this.title + ' · ' + this.latin; }
 }

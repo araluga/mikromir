@@ -11,8 +11,9 @@ const sim = {
   kills: 0, conj: 0, newSpecies: 0, pendingDiv: 0,
 };
 
-function simLog(msg, kind = 'info') {
-  sim.logs.push({ t: sim.time, msg, kind, at: Date.now() });
+// Запись журнала хранит ключ и параметры — текст собирается на текущем языке при показе
+function simLog(key, params, kind = 'info') {
+  sim.logs.push({ t: sim.time, key, params: params || null, kind, at: Date.now() });
   if (sim.logs.length > 120) sim.logs.shift();
 }
 
@@ -34,7 +35,7 @@ function addCell(c) {
   if (!sp.established && sp.count >= 10) {
     sp.established = true;
     sim.newSpecies++;
-    simLog(`Новый вид закрепился: ${sp.title} «${sp.latin}»` + (sp.parentName ? ` (потомок ${sp.parentName})` : ''), 'species');
+    simLog(sp.parentName ? 'log.newSpeciesFrom' : 'log.newSpecies', { sp, latin: sp.latin, parent: sp.parentName }, 'species');
   }
 }
 
@@ -45,7 +46,7 @@ function onCellDeath(c, eaten) {
   if (sp.count <= 0) {
     sp.count = 0;
     sp.extinct = sim.time;
-    if (sp.established && sp.maxCount >= 10) simLog(`Вид вымер: ${sp.title} «${sp.latin}»`, 'extinct');
+    if (sp.established && sp.maxCount >= 10) simLog('log.extinct', { sp, latin: sp.latin }, 'extinct');
   }
   if (!eaten) {
     const total = c.energy * 0.6 + c.mass * 0.8;
@@ -172,14 +173,14 @@ function contact(c, o) {
         o.para = 1.2;
         o.dmg += 0.02;
         if (o.energy < 0) {
-          o.hurt(-o.energy / (o.m75 * 2), 'гарпун');
+          o.hurt(-o.energy / (o.m75 * 2), 'harpoon');
           o.energy = 0;
         }
         const g = dr * 0.4;
         c.energy = Math.min(c.cap, c.energy + g);
         c.gH += g * 0.125;
         c.energy -= 0.15 * c.m75 * DT * t[T.HARPOON];
-        if (o.health <= 0) { o.die('гарпун'); c.kills++; sim.kills++; c.addVacuole(); c.digest = 1 + 4 * Math.min(1, o.mass / c.mass); return; }
+        if (o.health <= 0) { o.die('harpoon'); c.kills++; sim.kills++; c.addVacuole(); c.digest = 1 + 4 * Math.min(1, o.mass / c.mass); return; }
       }
     }
     // фагоцитоз: проглотить целиком
@@ -191,7 +192,7 @@ function contact(c, o) {
           const g = (o.energy + o.mass) * (0.6 + 0.35 * t[T.PHAGO]);
           c.energy = Math.min(c.cap * 1.3, c.energy + g);
           c.gH += g * 0.125;
-          o.die('съедена', true);
+          o.die('eaten', true);
           c.digest = 0.5 + 6 * Math.min(1.5, o.mass / c.mass);
           c.kills++; sim.kills++;
           c.addVacuole();
@@ -360,11 +361,11 @@ function phages() {
     let killed = 0;
     for (const c of sim.cells) {
       if (c.sp !== s || c.dead) continue;
-      if (Math.random() < p * (c.state === 1 ? 0.1 : 1) * (1 - 0.3 * c.t[T.ARMOR])) { c.die(c.euk > 0.5 ? 'вирус' : 'бактериофаг'); killed++; }
+      if (Math.random() < p * (c.state === 1 ? 0.1 : 1) * (1 - 0.3 * c.t[T.ARMOR])) { c.die(c.euk > 0.5 ? 'virus' : 'phage'); killed++; }
     }
     if (killed > 0 && sim.time - (s.lastPhageLog || -1e9) > 60) {
       s.lastPhageLog = sim.time;
-      simLog(`Эпидемия ${eukOf(maxRadiusOf(s.rep.t)) > 0.5 ? 'вирусов' : 'бактериофагов'}: «${s.latin}» слишком расплодились (${Math.round(share * 100)}% всех клеток)`, 'warn');
+      simLog(eukOf(maxRadiusOf(s.rep.t)) > 0.5 ? 'log.virus' : 'log.phage', { latin: s.latin, pct: Math.round(share * 100) }, 'warn');
     }
   }
   let w = 0;
@@ -384,17 +385,17 @@ function panspermia() {
     const [x, y] = randomInDish(150);
     spawnArchetype(a, a.cls === 'predator' ? 4 : 8, x, y, 60);
     sim.classSeen[k] = sim.time;
-    simLog(`Занос извне: в чашку попали ${a.name} (${CLASSES[k].name.toLowerCase()} вымерли)`, 'warn');
+    simLog('log.panspermia', { arc: { k: 'arc.' + a.key + '.name' }, cls: { k: 'cls.' + k, lower: true } }, 'warn');
   }
   if (sim.cells.length < 15 && SETTINGS.panspermia) {
     for (const a of ARCHETYPES.slice(0, 2)) { const [x, y] = randomInDish(150); spawnArchetype(a, 15, x, y, 120); }
-    simLog('Жизнь почти исчезла — споры принесло ветром', 'warn');
+    simLog('log.lifeWind', null, 'warn');
   }
 }
 
 function archetypeSpecies(arc) {
   if (!arc.species || !speciesMap.has(arc.species.id)) {
-    arc.species = new Species(archetypeGenome(arc, 0), null, { name: arc.name, latin: arc.latin, archetype: true });
+    arc.species = new Species(archetypeGenome(arc, 0), null, { arcKey: arc.key, latin: arc.latin, archetype: true });
   }
   return arc.species;
 }
@@ -443,33 +444,23 @@ function spawnRandom(n, x, y, spread) {
 
 const PRESETS = {
   genesis: {
-    name: 'Сотворение', tag: 'Испытание', empty: true, panspermia: false,
-    desc: 'Чашка пуста. Тратьте очки жизни на посев и выполняйте цели: от первых водорослей до устойчивой экосистемы из пяти групп.',
+    empty: true, panspermia: false,
     dots: ['photo', 'osmo', 'grazer', 'toxic', 'predator'], sparse: true,
   },
   sandbox: {
-    name: 'Пустая чашка', tag: 'Песочница', empty: true, panspermia: false,
-    desc: 'Ни одной клетки. Сейте кого угодно и сколько угодно, ставьте эксперименты.',
+    empty: true, panspermia: false,
     dots: [], sparse: true,
   },
   balanced: {
-    name: 'Сбалансированная экосистема', tag: 'Наблюдение',
-    desc: 'Все группы микромира сразу: бактерии, водоросли, инфузории и хищники.',
     dots: ['photo', 'photo', 'osmo', 'osmo', 'grazer', 'toxic', 'predator'],
   },
   protists: {
-    name: 'Пруд простейших', tag: 'Наблюдение',
-    desc: 'Водоросли, туфельки, трубачи, амёбы и дидиниумы на подложке из цианобактерий.',
     dots: ['photo', 'photo', 'photo', 'grazer', 'grazer', 'predator'],
   },
   bacteria: {
-    name: 'Мир бактерий', tag: 'Наблюдение',
-    desc: 'Только прокариоты: кишечные палочки, цианобактерии, стрептомицеты и бделловибрионы.',
     dots: ['osmo', 'osmo', 'osmo', 'photo', 'photo', 'toxic', 'predator'],
   },
   soup: {
-    name: 'Первичный бульон', tag: 'Эволюция с нуля',
-    desc: 'Сотни случайных геномов без врождённых рефлексов. Всё поведение придётся изобрести эволюции.',
     dots: ['photo', 'osmo', 'grazer', 'toxic', 'predator', 'osmo', 'photo'],
   },
 };
@@ -484,7 +475,7 @@ function initWorld(preset = 'balanced') {
   const P = PRESETS[preset];
   SETTINGS.panspermia = P.panspermia !== false;
   initEnv(preset === 'soup' ? { richness: 0.9, vents: 6 } : {});
-  simLog(`Новый мир: ${P.name}`, 'info');
+  simLog('log.newWorld', { mode: { k: 'preset.' + preset + '.name' } }, 'info');
   initMode(preset);
   const sel = {
     balanced: ARCHETYPES.map(a => [a.key, a.count]),

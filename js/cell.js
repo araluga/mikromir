@@ -226,7 +226,7 @@ class Cell {
       const p = t[T.CHLORO] * L * Math.pow(this.r, 1.6) * 0.3 * dt;
       gain += p;
       this.gP += (p / dt - this.gP) * 0.005;
-      if (L > 0.85) this.hurt((L - 0.85) * t[T.CHLORO] * 0.5 * dt, 'свет');
+      if (L > 0.85) this.hurt((L - 0.85) * t[T.CHLORO] * 0.5 * dt, 'light');
     }
     this.gH *= 0.995;
 
@@ -260,16 +260,16 @@ class Cell {
 
     // ── здоровье ──
     const tox = env.T.a[ix];
-    if (tox > 0.01) { const res = 1 - t[T.RESIST]; this.hurt(tox * res * res * 0.9 * dt, 'токсин'); }
-    if (this.L > 0.9) this.hurt((this.L - 0.9) * 0.15 * dt, 'свет');
-    if (this.energy <= 0) { this.energy = 0; this.hurt(0.25 * dt, 'голод'); }
-    if (this.age > 500) this.hurt(0.02 * (this.age - 500) / 100 * dt, 'старость');
+    if (tox > 0.01) { const res = 1 - t[T.RESIST]; this.hurt(tox * res * res * 0.9 * dt, 'toxin'); }
+    if (this.L > 0.9) this.hurt((this.L - 0.9) * 0.15 * dt, 'light');
+    if (this.energy <= 0) { this.energy = 0; this.hurt(0.25 * dt, 'starve'); }
+    if (this.age > 500) this.hurt(0.02 * (this.age - 500) / 100 * dt, 'age');
     if (this.energy > 0.3 * capE && this.health < 1) {
       this.health = Math.min(1, this.health + 0.05 * dt);
       this.energy -= 0.03 * m75 * dt;
     }
     this.dmg *= 0.92;
-    if (this.health <= 0) { this.die(this.cause || 'истощение'); return; }
+    if (this.health <= 0) { this.die(this.cause || 'exhaust'); return; }
 
     // ── таймеры и визуал ──
     if (this.conjCd > 0) this.conjCd -= dt;
@@ -305,7 +305,7 @@ class Cell {
     this.energy -= 0.0004 * this.m75 * dt;
     const ix = fieldIdx(this.x, this.y);
     const tox = env.T.a[ix];
-    if (tox > 0.05) { const res = 1 - this.t[T.RESIST]; this.hurt(tox * res * res * 0.08 * dt, 'токсин'); }
+    if (tox > 0.05) { const res = 1 - this.t[T.RESIST]; this.hurt(tox * res * res * 0.08 * dt, 'toxin'); }
     if (SETTINGS.brownian) {
       const s = Math.sqrt(2 * (30 / this.r) * dt) * 0.7;
       this.x += randn() * s; this.y += randn() * s;
@@ -321,8 +321,8 @@ class Cell {
         this.brain.h.fill(0);
       }
     }
-    if (this.energy <= 0) { this.energy = 0; this.hurt(0.01 * dt, 'спора погибла'); }
-    if (this.health <= 0 || this.sporeT > 900) this.die('спора погибла');
+    if (this.energy <= 0) { this.energy = 0; this.hurt(0.01 * dt, 'spore'); }
+    if (this.health <= 0 || this.sporeT > 900) this.die('spore');
   }
 
   keepInDish() {
@@ -356,16 +356,17 @@ class Cell {
     if (this.vac.length < 6) this.vac.push({ a: Math.random() * TAU, f: rand(0.2, 0.6), life: 1 });
   }
 
+  // ключ состояния (переводится в интерфейсе: act.*)
   activity() {
-    if (this.dead) return 'погибла: ' + this.cause;
-    if (this.state === 1) return 'спора (покой)';
-    if (this.divT >= 0) return 'делится';
-    if (this.conjT > 0) return 'конъюгация';
-    if (this.attack && this.nb && this.nbGap < 2 && this.nb.sp !== this.sp) return 'атакует';
-    if (this.para > 0) return 'парализована';
-    if (this.tumble) return 'кувырок';
-    if (this.toxOut > 0.2 && this.t[T.TOXIN] > 0.1) return 'выделяет токсин';
-    if (this.thrust > 0.3) return 'плывёт';
-    return 'дрейфует';
+    if (this.dead) return 'dead';
+    if (this.state === 1) return 'spore';
+    if (this.divT >= 0) return 'divide';
+    if (this.conjT > 0) return 'conj';
+    if (this.attack && this.nb && this.nbGap < 2 && this.nb.sp !== this.sp) return 'attack';
+    if (this.para > 0) return 'para';
+    if (this.tumble) return 'tumble';
+    if (this.toxOut > 0.2 && this.t[T.TOXIN] > 0.1) return 'toxin';
+    if (this.thrust > 0.3) return 'swim';
+    return 'drift';
   }
 }

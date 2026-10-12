@@ -1,49 +1,51 @@
-# Микромир — нейроэволюция клеток
+# Microworld — cell neuroevolution
 
-Живая чашка Петри в браузере. У каждой клетки своя нейросеть, которая **учится за жизнь** и **эволюционирует** из поколения в поколение. Никто не программирует поведение — хемотаксис, охота, бегство от хищников и химическая война появляются сами.
+**English** · [Русский](README.ru.md)
 
-**▶ Играть: https://araluga.github.io/mikromir/**
+A living Petri dish in your browser. Every cell has its own neural network that **learns during its life** and **evolves** across generations. Nobody programs the behavior — chemotaxis, hunting, fleeing predators and chemical warfare emerge on their own.
 
-Или скачайте репозиторий и откройте `index.html` — сервер и сборка не нужны.
+**▶ Play: https://araluga.github.io/mikromir/**
 
-## Режимы
+Or download the repository and open `index.html` — no server or build step needed. The interface is available in English and Russian (switch in the main menu or the settings panel).
 
-| Режим | Что происходит |
+## Modes
+
+| Mode | What happens |
 |---|---|
-| **Сотворение** | Чашка пуста. Тратьте очки жизни на посев и выполняйте цели: от первых водорослей до устойчивой экосистемы из пяти экогрупп. |
-| **Пустая чашка** | Песочница без клеток и ограничений — сейте кого угодно. |
-| **Сбалансированная экосистема** | Все обитатели сразу: наблюдайте и вмешивайтесь. |
-| **Пруд простейших / Мир бактерий** | Тематические миры. |
-| **Первичный бульон** | Сотни случайных геномов без врождённых рефлексов — всё поведение изобретает эволюция. |
+| **Genesis** | The dish is empty. Spend life points on seeding and complete goals: from the first algae to a stable ecosystem of five ecological groups. |
+| **Empty dish** | A sandbox with no cells and no limits — seed anything you like. |
+| **Balanced ecosystem** | All organisms at once: watch and intervene. |
+| **Protist pond / Bacterial world** | Themed worlds. |
+| **Primordial soup** | Hundreds of random genomes with no innate reflexes — evolution has to invent all behavior. |
 
-## Как устроен мозг клетки
+## The cell's brain
 
-- **31 сенсор → 14 рекуррентных нейронов → 9 действий.** Клетка чувствует свою энергию и здоровье, концентрацию органики и её градиенты (спереди/сзади, слева/справа и во времени — как настоящая кишечная палочка), свет, токсины, запах соседей, сигналы кворума, ближайшую добычу, угрозу и сородичей, частицы детрита, боль и награду.
-- **Действия:** тяга, поворот, «кувырок», атака (фагоцитоз или гарпун), выброс токсина, сигнал кворума, деление, конъюгация, превращение в спору.
-- **Эволюция:** при делении потомок получает 14 признаков (размер, жгутик, реснички, ложноножки, хлоропласты, броня…) и 765 весов сети с мутациями. Когда потомки сильно расходятся с предками, рождается новый вид со своим цветом и латинским названием.
-- **Обучение за жизнь:** обучение с подкреплением методом возмущения нейронов. Награда — прирост энергии, наказание — боль (токсин, гарпун, ожог). Скорость обучения тоже наследуется. По умолчанию выученное не передаётся детям (как у Дарвина), но можно включить ламарковское наследование.
+- **31 sensors → 14 recurrent neurons → 9 actions.** A cell senses its energy and health, the concentration of organic matter and its gradients (front/back, left/right and over time — like a real *E. coli*), light, toxins, the scent of neighbors, quorum signals, the nearest prey, threat and kin, detritus particles, pain and reward.
+- **Actions:** thrust, turn, tumble, attack (phagocytosis or harpoon), release toxin, quorum signal, divide, conjugate, turn into a spore.
+- **Evolution:** when a cell divides, the offspring inherits 14 traits (size, flagellum, cilia, pseudopods, chloroplasts, armor…) and 765 network weights, with mutations. When descendants drift far enough from their ancestors, a new species is born with its own color and Latin name.
+- **Lifetime learning:** reinforcement learning via node perturbation. Reward is energy gain, punishment is pain (toxin, harpoon, burns). The learning rate is itself inherited. By default, learned changes are not passed to offspring (Darwinian), but you can switch on Lamarckian inheritance.
 
-## Биология
+## Biology
 
-Низкие числа Рейнольдса (нет инерции), броуновское движение, диффузия веществ, закон Клайбера для обмена веществ, фотосинтез с самозатенением и световым ожогом, осмотрофия, фагоцитоз со временем переваривания, гарпуны и токсицисты, антибиотики, чувство кворума, конъюгация с обменом генами, споры, детрит, эпидемии бактериофагов («убей победителя»), смена дня и ночи.
+Low Reynolds numbers (no inertia), Brownian motion, diffusion of chemicals, Kleiber's law for metabolism, photosynthesis with self-shading and light damage, osmotrophy, phagocytosis with digestion time, harpoons and toxicysts, antibiotics, quorum sensing, conjugation with gene exchange, spores, detritus, bacteriophage epidemics (“kill the winner”), day/night cycle.
 
-Обитатели: кишечная палочка, цианобактерия, стрептомицет, бделловибрион, эвглена, диатомея, инфузория-туфелька, трубач, амёба протей, дидиниум.
+Organisms: *E. coli*, cyanobacterium, *Streptomyces*, *Bdellovibrio*, green euglena, diatom, *Paramecium*, *Stentor*, *Amoeba proteus*, *Didinium*.
 
-## Управление
+## Controls
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| Пробел | пауза |
-| 1–5 | скорость ×1, ×3, ×10, ×40, MAX |
-| Q W E R T Y | осмотр, питание, антибиотик, лампа, посев, лазер |
-| Колесо / щипок | масштаб |
-| F | вся чашка |
-| C | следить за выбранной клеткой |
-| M | главное меню |
-| H | справка |
+| Space | pause |
+| 1–5 | speed ×1, ×3, ×10, ×40, MAX |
+| Q W E R T Y | inspect, nutrients, antibiotic, lamp, seed, laser |
+| Wheel / pinch | zoom |
+| F | whole dish |
+| C | follow the selected cell |
+| M | main menu |
+| H | help |
 
-Кликните по клетке, чтобы увидеть её нейросеть в реальном времени и геном. Понравившийся геном можно сохранить как штамм и посеять позже.
+Click a cell to see its neural network live and its genome. A genome you like can be saved as a strain and seeded later.
 
-## Технически
+## Under the hood
 
-Чистый JavaScript + Canvas 2D, без зависимостей. Код в `js/`: `sim.js` — шаг мира, `cell.js` — клетка, `brain.js` — нейросеть и обучение, `genome.js` — геном и прототипы организмов, `env.js` — химические поля и свет, `modes.js` — режимы и цели, `render.js` — отрисовка, `ui.js` — интерфейс.
+Plain JavaScript + Canvas 2D, no dependencies. Code lives in `js/`: `sim.js` — world step, `cell.js` — the cell, `brain.js` — neural network and learning, `genome.js` — genome and real-organism prototypes, `env.js` — chemical fields and light, `modes.js` — modes and goals, `i18n.js` — translations, `render.js` — rendering, `ui.js` — interface.

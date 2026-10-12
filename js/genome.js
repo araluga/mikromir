@@ -129,64 +129,54 @@ function randomGenome() {
 // ───────── Прототипы реальных микроорганизмов ─────────
 const ARCHETYPES = [
   {
-    key: 'ecoli', name: 'Кишечная палочка', latin: 'Escherichia coli', count: 230,
+    key: 'ecoli', latin: 'Escherichia coli', count: 230,
     traits: { size: 0.07, flag: 0.75, osmo: 0.85, resist: 0.1 },
     inst: { food: 1, toxinAvoid: 1, spore: 1, conj: 1, flee: 0.5 },
-    info: 'Палочковидная бактерия с жгутиками-роторами. Плывёт по прямой, а если еды становится меньше — кувыркается и выбирает новое направление (хемотаксис «бег и кувырок»). Питается растворённой органикой, обменивается плазмидами при конъюгации.',
   },
   {
-    key: 'cyano', name: 'Цианобактерия', latin: 'Synechococcus elongatus', count: 160,
+    key: 'cyano', latin: 'Synechococcus elongatus', count: 160,
     traits: { size: 0.09, flag: 0.22, chloro: 0.85, osmo: 0.15, armor: 0.2 },
     inst: { light: 1, toxinAvoid: 0.7, spore: 1 },
-    info: 'Древнейший фотосинтетик: тилакоиды прямо в цитоплазме, ядра нет. Основа пищевой цепи — превращает свет в энергию, которую затем съедают все остальные. Слишком яркий свет её повреждает.',
   },
   {
-    key: 'strepto', name: 'Стрептомицет', latin: 'Streptomyces griseus', count: 35,
+    key: 'strepto', latin: 'Streptomyces griseus', count: 35,
     traits: { size: 0.1, flag: 0.2, osmo: 0.75, toxin: 0.75, resist: 0.9 },
     inst: { food: 0.8, quorum: 1, spore: 1 },
-    info: 'Почвенная бактерия-химик, источник природных антибиотиков. Использует чувство кворума: пока их мало — молчат, а собравшись толпой, синхронно отравляют всё вокруг. Сама устойчива к своему яду.',
   },
   {
-    key: 'bdello', name: 'Бделловибрион', latin: 'Bdellovibrio bacteriovorus', count: 18,
+    key: 'bdello', latin: 'Bdellovibrio bacteriovorus', count: 18,
     traits: { size: 0.02, flag: 1.0, harpoon: 0.8, osmo: 0.1 },
     inst: { hunt: 1, attack: 1, food: 0.3 },
-    info: 'Крошечная бактерия-хищник, «Чужой» микромира. Несётся со скоростью до 100 длин тела в секунду, врезается в другую бактерию и высасывает её изнутри.',
   },
   {
-    key: 'euglena', name: 'Эвглена зелёная', latin: 'Euglena viridis', count: 45,
+    key: 'euglena', latin: 'Euglena viridis', count: 45,
     traits: { size: 0.34, flag: 0.7, chloro: 0.65, osmo: 0.25, phago: 0.15 },
     inst: { light: 1, food: 0.3, toxinAvoid: 0.8, flee: 0.8 },
-    info: 'Миксотроф: и фотосинтезирует, и всасывает органику. Жгутик тянет её вперёд, светочувствительный глазок-стигма направляет к свету, но от слепящего света она уплывает в полутень.',
   },
   {
-    key: 'diatom', name: 'Диатомея', latin: 'Navicula radiosa', count: 35,
+    key: 'diatom', latin: 'Navicula radiosa', count: 35,
     traits: { size: 0.3, flag: 0.12, chloro: 0.9, armor: 0.7 },
     inst: { light: 0.6, thrust: 0.4 },
-    info: 'Водоросль в кремниевом панцире-«шкатулке». Медленно скользит по слизи, зато панцирь защищает от пожирателей.',
   },
   {
-    key: 'paramecium', name: 'Инфузория-туфелька', latin: 'Paramecium caudatum', count: 32,
+    key: 'paramecium', latin: 'Paramecium caudatum', count: 32,
     traits: { size: 0.42, cilia: 0.8, phago: 0.6, armor: 0.15, resist: 0.15 },
     inst: { food: 0.4, hunt: 0.6, debris: 1, attack: 1, toxinAvoid: 1, flee: 0.8, conj: 1 },
-    info: '«Корова» микромира. Тысячи ресничек гребут волнами, загоняя бактерий в клеточный рот. Внутри видны пищеварительные вакуоли и пульсирующая сократительная вакуоль.',
   },
   {
-    key: 'stentor', name: 'Трубач', latin: 'Stentor coeruleus', count: 8,
+    key: 'stentor', latin: 'Stentor coeruleus', count: 8,
     traits: { size: 0.62, cilia: 0.5, phago: 0.55, osmo: 0.1 },
     inst: { food: 0.3, hunt: 0.3, debris: 1, attack: 1, thrust: 0.4 },
-    info: 'Гигантская клетка-воронка. Венчик ресничек создаёт водоворот, засасывающий водоросли и бактерий. Плавает медленно, предпочитает «пастись» на месте.',
   },
   {
-    key: 'amoeba', name: 'Амёба протей', latin: 'Amoeba proteus', count: 8,
+    key: 'amoeba', latin: 'Amoeba proteus', count: 8,
     traits: { size: 0.85, pseudo: 0.9, phago: 0.9, armor: 0.1 },
     inst: { hunt: 0.8, debris: 1, attack: 1, thrust: 0.6 },
-    info: 'Медленный «удав». Перетекает с помощью ложноножек, окружает добычу и замыкает её в пищеварительную вакуоль. Может проглотить даже инфузорию.',
   },
   {
-    key: 'didinium', name: 'Дидиниум', latin: 'Didinium nasutum', count: 8,
+    key: 'didinium', latin: 'Didinium nasutum', count: 8,
     traits: { size: 0.45, cilia: 0.85, harpoon: 0.6, phago: 0.75 },
     inst: { hunt: 1.2, attack: 1, selective: 1 },
-    info: '«Лев» микромира — охотник на туфелек. Вонзает хоботок с токсицистами, парализует жертву и заглатывает её целиком, даже если она крупнее самого дидиниума.',
   },
 ];
 
