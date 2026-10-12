@@ -64,6 +64,13 @@ function updateFieldImage() {
 }
 
 function render(fdt, running) {
+  const ctx0 = R.ctx;
+  ctx0.save();
+  try { renderFrame(fdt, running); }
+  finally { ctx0.restore(); }   // при любой ошибке состояние холста (обрезка, прозрачность) не «утечёт» в следующие кадры
+}
+
+function renderFrame(fdt, running) {
   const ctx = R.ctx, W = R.W, H = R.H;
   R.frame++;
   if (running) R.animT += fdt;
@@ -166,33 +173,76 @@ function render(fdt, running) {
   drawCursor(ctx, cpx);
 }
 
-// Колонии: общая студенистая оболочка и межклеточные контакты
+// Колонии: общая оболочка, обтягивающая клетки, и межклеточные контакты.
+// Оболочку рисуем на отдельном слое непрозрачными цветами (мембрана, поверх — внутренность),
+// затем кладём слой на кадр с прозрачностью: так форма — объединение кругов и «колбасок»
+// вдоль связей — получается цельной, без наложений.
+function envLayer() {
+  if (!R.env || R.env.width !== R.W || R.env.height !== R.H) {
+    R.env = document.createElement('canvas');
+    R.env.width = R.W; R.env.height = R.H;
+    R.envCtx = R.env.getContext('2d');
+  }
+  return R.envCtx;
+}
+
 function drawColonies(ctx, k, cpx, vx0, vx1, vy0, vy1) {
   if (!sim.colonies.length) return;
-  for (const col of sim.colonies) {
-    if (col.size < 3) continue;
-    const R = col.rad + Math.sqrt(col.mass / col.size) * 1.8;
-    if (col.cx + R < vx0 || col.cx - R > vx1 || col.cy + R < vy0 || col.cy - R > vy1) continue;
-    ctx.beginPath(); ctx.arc(col.cx, col.cy, R, 0, TAU);
-    ctx.fillStyle = col.sp.cGel; ctx.fill();
-    ctx.lineWidth = 1 * cpx; ctx.strokeStyle = col.sp.cGelEdge; ctx.stroke();
-  }
+  // клетки колоний в кадре, по видам
   const bySp = new Map();
-  for (const c of sim.cells) {
-    if (!c.bonds.length || c.x < vx0 || c.x > vx1 || c.y < vy0 || c.y > vy1) continue;
-    for (const b of c.bonds) {
-      if (c.id > b.id) continue;
-      let l = bySp.get(c.sp);
-      if (!l) { l = []; bySp.set(c.sp, l); }
-      l.push(c, b);
-    }
+  for (const col of sim.colonies) {
+    const m = col.rad + 40;
+    if (col.cx + m < vx0 || col.cx - m > vx1 || col.cy + m < vy0 || col.cy - m > vy1) continue;
+    let l = bySp.get(col.sp);
+    if (!l) { l = []; bySp.set(col.sp, l); }
+    for (const c of col.cells) if (!c.dead) l.push(c);
   }
+  if (!bySp.size) return;
+  const lc = envLayer(), ox = R.W / 2 - cam.x * k, oy = R.H / 2 - cam.y * k;
+  lc.setTransform(1, 0, 0, 1, 0, 0);
+  lc.clearRect(0, 0, R.W, R.H);
+  lc.setTransform(k, 0, 0, k, ox, oy);
+  lc.lineCap = 'round';
+  const mw = Math.max(2.4 * cpx, 1.4);      // толщина мембраны
+  const shape = (list, inset) => {
+    lc.beginPath();
+    for (const c of list) {
+      const Ro = c.r + envPad(c), R0 = Ro - Math.min(inset, Ro * 0.5);   // мембрана не толще половины оболочки
+      lc.moveTo(c.x + R0, c.y); lc.arc(c.x, c.y, R0, 0, TAU);
+    }
+    lc.fill();
+    // «колбаски» вдоль связей сглаживают перетяжки между клетками
+    for (const c of list) for (const o of c.bonds) {
+      if (c.id > o.id || o.col !== c.col) continue;
+      const Ro = Math.min(c.r + envPad(c), o.r + envPad(o));
+      lc.lineWidth = 2 * (Ro - Math.min(inset, Ro * 0.5));
+      lc.beginPath(); lc.moveTo(c.x, c.y); lc.lineTo(o.x, o.y); lc.stroke();
+    }
+  };
+  for (const [sp, list] of bySp) {
+    lc.fillStyle = lc.strokeStyle = sp.cMembrane; shape(list, 0);
+    lc.fillStyle = lc.strokeStyle = sp.cInside; shape(list, mw);
+  }
+  // слой — на кадр
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 0.5;
+  // мягкий край: слегка размываем оболочку (если браузер умеет фильтры холста)
+  if ('filter' in ctx) ctx.filter = `blur(${clamp(cam.z * R.dpr * 0.9, 1, 5).toFixed(1)}px)`;
+  ctx.drawImage(R.env, 0, 0);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  // межклеточные контакты
   ctx.lineCap = 'round';
-  for (const [sp, l] of bySp) {
+  for (const [sp, list] of bySp) {
     ctx.beginPath();
-    let rs = 0;
-    for (let i = 0; i < l.length; i += 2) { ctx.moveTo(l[i].x, l[i].y); ctx.lineTo(l[i + 1].x, l[i + 1].y); rs += Math.min(l[i].r, l[i + 1].r); }
-    ctx.lineWidth = Math.max(1.2 * cpx, rs / (l.length / 2) * 0.8);
+    let rs = 0, n = 0;
+    for (const c of list) for (const o of c.bonds) {
+      if (c.id > o.id) continue;
+      ctx.moveTo(c.x, c.y); ctx.lineTo(o.x, o.y); rs += Math.min(c.r, o.r); n++;
+    }
+    if (!n) continue;
+    ctx.lineWidth = Math.max(1.2 * cpx, rs / n * 0.7);
     ctx.strokeStyle = sp.cBond; ctx.stroke();
   }
   ctx.lineCap = 'butt';

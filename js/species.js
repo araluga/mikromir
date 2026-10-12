@@ -65,8 +65,8 @@ class Species {
     this.cSolid = `hsl(${h},72%,62%)`;
     this.cDark = `hsla(${h},50%,28%,0.6)`;
     this.cNuc = `hsla(${(h + 200) % 360},35%,22%,0.75)`;
-    this.cGel = `hsla(${h},60%,55%,0.07)`;        // студенистая оболочка колонии
-    this.cGelEdge = `hsla(${h},70%,72%,0.28)`;
+    this.cMembrane = `hsl(${h},60%,62%)`;         // общая оболочка колонии (рисуется на слое, затем полупрозрачно)
+    this.cInside = `hsl(${h},40%,24%)`;
     this.cBond = `hsla(${h},80%,72%,0.5)`;        // межклеточный контакт
   }
   get title() {

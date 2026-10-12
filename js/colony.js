@@ -36,6 +36,9 @@ function bondAtDivision(parent, child) {
   return false;
 }
 
+// Толщина общей оболочки колонии вокруг клетки (для столкновений и отрисовки)
+function envPad(c) { return c.r * 0.7 + 2; }
+
 // Эффективный радиус «жертвы»: колонию целиком хищнику не проглотить
 function effRadius(c) { return c.col ? c.col.effR : c.r; }
 
@@ -76,7 +79,7 @@ function colonyStep(dt) {
 
 // Распознавание колоний (обход связей), раз в несколько тиков
 function findColonies() {
-  const cells = sim.cells, mark = sim.tick;
+  const cells = sim.cells, mark = ++sim.colPass;   // свой номер обхода (повторный вызов в тот же тик тоже корректен)
   sim.colonies = [];
   for (const c of cells) c.col = null;
   for (const c0 of cells) {

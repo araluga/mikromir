@@ -9,7 +9,7 @@ const sim = {
   logs: [], hist: [], lastStat: 0, classSeen: {},
   selected: null, maxGen: 0, totalBorn: 0, totalDied: 0, preset: 'balanced',
   kills: 0, conj: 0, newSpecies: 0, pendingDiv: 0,
-  colonies: [], shared: 0, firstColonyLogged: false,
+  colonies: [], shared: 0, firstColonyLogged: false, colPass: 0,
 };
 
 // Запись журнала хранит ключ и параметры — текст собирается на текущем языке при показе
@@ -133,7 +133,10 @@ function interactCells() {
           if (j !== i) {
             const o = cells[j];
             if (!o.dead) {
-              const dx = o.x - c.x, dy = o.y - c.y, rr = c.r + o.r;
+              // колония — одно тело: для чужих клеток её граница — общая оболочка, а не мембраны отдельных клеток
+              const same = c.col !== null && c.col === o.col;
+              const dx = o.x - c.x, dy = o.y - c.y;
+              const rr = c.r + o.r + (same ? 0 : (c.col ? envPad(c) : 0) + (o.col ? envPad(o) : 0));
               const lim = rr + extra;
               const d2 = dx * dx + dy * dy;
               if (d2 < lim * lim) {
@@ -147,7 +150,15 @@ function interactCells() {
                   if (gap < thrGap && ((o.t[T.PHAGO] > 0.05 && o.r * o.engulfRatio >= effRadius(c)) || (o.t[T.HARPOON] > 0.25 && o.r * 3.5 >= c.r))) { thrGap = gap; thr = o; }
                 }
                 if (gap < 0) {
-                  const push = -gap * (o.mass / (c.mass + o.mass)) * 0.6;
+                  // толкаются целыми телами: колония тяжёлая, одиночку отбрасывает почти целиком
+                  const mc = !same && c.col ? c.col.mass : c.mass, mo = !same && o.col ? o.col.mass : o.mass;
+                  // оболочка колонии мягкая: неглубокую вмятину почти не сопротивляется, глубже — упругость растёт
+                  let k = 0.6;
+                  if (!same && (c.col || o.col)) {
+                    const pads = (c.col ? envPad(c) : 0) + (o.col ? envPad(o) : 0), q = Math.min(1, -gap / pads);
+                    k = 0.08 + 0.52 * q * q;
+                  }
+                  const push = -gap * (mo / (mc + mo)) * k;
                   c.x -= dx / d * push; c.y -= dy / d * push;
                 }
                 if (gap < 1.5 + c.reachK * c.r && c.state === 0) contact(c, o);
